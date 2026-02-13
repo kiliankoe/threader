@@ -116,7 +116,7 @@ export function mountApp() {
       setStatus(
         statusLine,
         "That URL does not look like a supported Mastodon status.",
-        "error"
+        "error",
       );
       return;
     }
@@ -139,11 +139,13 @@ export function mountApp() {
         setStatus(
           statusLine,
           `Could not refresh from network. Showing cached thread from ${formatCachedAt(cached.cachedAt)}.`,
-          "warning"
+          "warning",
         );
       } else {
         const message =
-          error instanceof Error ? error.message : "Unknown error while loading.";
+          error instanceof Error
+            ? error.message
+            : "Unknown error while loading.";
         setStatus(statusLine, message, "error");
         root.innerHTML = "";
       }

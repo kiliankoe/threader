@@ -7,7 +7,7 @@ let modalClose;
 
 function getRemSize() {
   const size = Number.parseFloat(
-    getComputedStyle(document.documentElement).fontSize || "16"
+    getComputedStyle(document.documentElement).fontSize || "16",
   );
   return Number.isFinite(size) && size > 0 ? size : 16;
 }
@@ -23,7 +23,12 @@ function sizeModalToMedia(width, height) {
 
   modalPanel.style.removeProperty("width");
 
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
     return;
   }
 
@@ -153,7 +158,7 @@ export function openMediaModal(attachment) {
           sizeModalToMedia(image.naturalWidth, image.naturalHeight);
           sizeModalToRenderedMedia(image);
         },
-        { once: true }
+        { once: true },
       );
     }
     modalContent.append(image);
@@ -170,7 +175,7 @@ export function openMediaModal(attachment) {
         sizeModalToMedia(video.videoWidth, video.videoHeight);
         sizeModalToRenderedMedia(video);
       },
-      { once: true }
+      { once: true },
     );
     if (attachment.previewUrl) {
       video.poster = attachment.previewUrl;

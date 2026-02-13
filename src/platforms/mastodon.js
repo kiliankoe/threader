@@ -69,7 +69,7 @@ async function fetchJson(endpoint) {
     }
     throw new FetchError(
       `Mastodon API request failed (${response.status}).${detail}`,
-      response.status
+      response.status,
     );
   }
 
@@ -192,7 +192,7 @@ async function extendDescendants(input) {
     let contextRaw;
     try {
       contextRaw = await fetchJson(
-        `https://${input.instance}/api/v1/statuses/${tail.id}/context`
+        `https://${input.instance}/api/v1/statuses/${tail.id}/context`,
       );
     } catch {
       break;
@@ -227,7 +227,7 @@ async function extendDescendants(input) {
     let progressed = false;
     while (true) {
       const candidates = (childrenByParent.get(tail.id) || []).filter(
-        (status) => !input.seenIds.has(status.id)
+        (status) => !input.seenIds.has(status.id),
       );
 
       if (candidates.length === 0) {

@@ -139,13 +139,14 @@ function stripLeadingThreadMarkerFromText(text, index, totalPosts) {
   const postNumber = index + 1;
 
   const slashWithTotal = text.match(
-    /^\s*\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/
+    /^\s*\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/,
   );
   if (slashWithTotal) {
     const current = Number(slashWithTotal[1]);
     const declaredTotal = Number(slashWithTotal[2]);
     const plausibleTotal =
-      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+      declaredTotal >= Math.max(3, totalPosts - 1) &&
+      declaredTotal <= totalPosts + 30;
 
     if (current === postNumber && declaredTotal >= current && plausibleTotal) {
       return text.slice(slashWithTotal[0].length);
@@ -153,13 +154,14 @@ function stripLeadingThreadMarkerFromText(text, index, totalPosts) {
   }
 
   const ofWithTotal = text.match(
-    /^\s*\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/i
+    /^\s*\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/i,
   );
   if (ofWithTotal) {
     const current = Number(ofWithTotal[1]);
     const declaredTotal = Number(ofWithTotal[2]);
     const plausibleTotal =
-      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+      declaredTotal >= Math.max(3, totalPosts - 1) &&
+      declaredTotal <= totalPosts + 30;
 
     if (current === postNumber && declaredTotal >= current && plausibleTotal) {
       return text.slice(ofWithTotal[0].length);
@@ -167,7 +169,7 @@ function stripLeadingThreadMarkerFromText(text, index, totalPosts) {
   }
 
   const slashMarker = text.match(
-    /^\s*(\d{1,3})\s*\/(?!\d)(?:\s+|[\-:.)\]–—]\s+)/
+    /^\s*(\d{1,3})\s*\/(?!\d)(?:\s+|[\-:.)\]–—]\s+)/,
   );
   if (slashMarker) {
     const current = Number(slashMarker[1]);
@@ -192,13 +194,14 @@ function stripTrailingThreadMarkerFromText(text, index, totalPosts) {
   const postNumber = index + 1;
 
   const slashWithTotal = text.match(
-    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:[.!?\])]+)?\s*$/
+    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:[.!?\])]+)?\s*$/,
   );
   if (slashWithTotal) {
     const current = Number(slashWithTotal[1]);
     const declaredTotal = Number(slashWithTotal[2]);
     const plausibleTotal =
-      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+      declaredTotal >= Math.max(3, totalPosts - 1) &&
+      declaredTotal <= totalPosts + 30;
 
     if (current === postNumber && declaredTotal >= current && plausibleTotal) {
       return text.slice(0, text.length - slashWithTotal[0].length);
@@ -206,13 +209,14 @@ function stripTrailingThreadMarkerFromText(text, index, totalPosts) {
   }
 
   const ofWithTotal = text.match(
-    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:[.!?\])]+)?\s*$/i
+    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:[.!?\])]+)?\s*$/i,
   );
   if (ofWithTotal) {
     const current = Number(ofWithTotal[1]);
     const declaredTotal = Number(ofWithTotal[2]);
     const plausibleTotal =
-      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+      declaredTotal >= Math.max(3, totalPosts - 1) &&
+      declaredTotal <= totalPosts + 30;
 
     if (current === postNumber && declaredTotal >= current && plausibleTotal) {
       return text.slice(0, text.length - ofWithTotal[0].length);
@@ -220,7 +224,7 @@ function stripTrailingThreadMarkerFromText(text, index, totalPosts) {
   }
 
   const slashMarker = text.match(
-    /(?:^|[\s([\{\-–—:])(\d{1,3})\s*\/(?!\d)(?:[.!?\])]+)?\s*$/
+    /(?:^|[\s([\{\-–—:])(\d{1,3})\s*\/(?!\d)(?:[.!?\])]+)?\s*$/,
   );
   if (slashMarker) {
     const current = Number(slashMarker[1]);
@@ -252,30 +256,34 @@ function stripTrailingNewlinesFromText(text) {
  * @param {number} totalPosts
  */
 function stripLeadingThreadMarker(html, index, totalPosts) {
-  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const doc = new DOMParser().parseFromString(
+    `<div>${html}</div>`,
+    "text/html",
+  );
   const root = doc.body.firstElementChild;
   if (!root) {
     return html;
   }
 
-  const walker = doc.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        if (!node.nodeValue || !node.nodeValue.trim()) {
-          return NodeFilter.FILTER_SKIP;
-        }
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) {
+        return NodeFilter.FILTER_SKIP;
+      }
 
-        const tag = node.parentElement?.tagName || "";
-        if (tag === "CODE" || tag === "PRE" || tag === "SCRIPT" || tag === "STYLE") {
-          return NodeFilter.FILTER_SKIP;
-        }
+      const tag = node.parentElement?.tagName || "";
+      if (
+        tag === "CODE" ||
+        tag === "PRE" ||
+        tag === "SCRIPT" ||
+        tag === "STYLE"
+      ) {
+        return NodeFilter.FILTER_SKIP;
+      }
 
-        return NodeFilter.FILTER_ACCEPT;
-      },
-    }
-  );
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
 
   const textNodes = [];
   while (true) {
@@ -296,14 +304,16 @@ function stripLeadingThreadMarker(html, index, totalPosts) {
   const cleanedLeading = stripLeadingThreadMarkerFromText(
     firstTextNode.nodeValue,
     index,
-    totalPosts
+    totalPosts,
   );
   if (cleanedLeading !== firstTextNode.nodeValue) {
     firstTextNode.nodeValue = cleanedLeading;
     changed = true;
   }
 
-  const withoutLeadingNewlines = stripLeadingNewlinesFromText(firstTextNode.nodeValue);
+  const withoutLeadingNewlines = stripLeadingNewlinesFromText(
+    firstTextNode.nodeValue,
+  );
   if (withoutLeadingNewlines !== firstTextNode.nodeValue) {
     firstTextNode.nodeValue = withoutLeadingNewlines;
     changed = true;
@@ -314,7 +324,7 @@ function stripLeadingThreadMarker(html, index, totalPosts) {
     const cleanedTrailing = stripTrailingThreadMarkerFromText(
       lastTextNode.nodeValue,
       index,
-      totalPosts
+      totalPosts,
     );
 
     if (cleanedTrailing !== lastTextNode.nodeValue) {
@@ -322,7 +332,9 @@ function stripLeadingThreadMarker(html, index, totalPosts) {
       changed = true;
     }
 
-    const withoutTrailingNewlines = stripTrailingNewlinesFromText(lastTextNode.nodeValue);
+    const withoutTrailingNewlines = stripTrailingNewlinesFromText(
+      lastTextNode.nodeValue,
+    );
     if (withoutTrailingNewlines !== lastTextNode.nodeValue) {
       lastTextNode.nodeValue = withoutTrailingNewlines;
       changed = true;
@@ -352,7 +364,11 @@ export function renderPostCard(post, index, totalPosts) {
 
   const cw = getCwPresentation(post, index);
   const safeContent = sanitizeHtml(post.contentHtml);
-  const cleanedContent = stripLeadingThreadMarker(safeContent, index, totalPosts);
+  const cleanedContent = stripLeadingThreadMarker(
+    safeContent,
+    index,
+    totalPosts,
+  );
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "post-content";

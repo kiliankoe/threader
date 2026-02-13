@@ -47,7 +47,7 @@ export function buildMainlineThread(input) {
   }
 
   const hasAlternateBranches = Array.from(childrenByParent.values()).some(
-    (children) => children.length > 1
+    (children) => children.length > 1,
   );
 
   const beforeSeed = [];
