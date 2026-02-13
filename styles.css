@@ -170,6 +170,10 @@ h1 {
     margin-top: 0.18rem;
 }
 
+.post-row:last-child {
+    padding-bottom: 0.45rem;
+}
+
 .post-card {
     min-width: 0;
     padding: 0.95rem 0;
