@@ -130,9 +130,7 @@ export function mountApp() {
       renderThread(root, thread);
       saveThreadToCache(submittedUrl, thread);
       document.title = `Thread by ${thread.author.displayName} - Threader`;
-
-      const noun = thread.posts.length === 1 ? "post" : "posts";
-      setStatus(statusLine, `Loaded ${thread.posts.length} ${noun}.`);
+      setStatus(statusLine, "");
     } catch (error) {
       const cached = loadThreadFromCache(submittedUrl);
       if (cached?.thread) {
