@@ -26,6 +26,10 @@ function renderMediaGallery(attachments) {
     return null;
   }
 
+  const shouldUseModal =
+    typeof window !== "undefined" &&
+    !window.matchMedia("(max-width: 720px)").matches;
+
   const gallery = document.createElement("div");
   gallery.className = "media-grid";
 
@@ -44,6 +48,9 @@ function renderMediaGallery(attachments) {
       anchor.target = "_blank";
       anchor.rel = "noopener noreferrer";
       anchor.addEventListener("click", (event) => {
+        if (!shouldUseModal) {
+          return;
+        }
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
           return;
         }
@@ -58,11 +65,20 @@ function renderMediaGallery(attachments) {
       anchor.append(image);
       figure.append(anchor);
     } else if (attachment.type === "video" || attachment.type === "gifv") {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "media-trigger";
-      button.setAttribute("aria-label", "Open video attachment");
-      button.addEventListener("click", () => {
+      const trigger = document.createElement("a");
+      trigger.className = "media-trigger-link";
+      trigger.href = attachment.url || attachment.previewUrl;
+      trigger.target = "_blank";
+      trigger.rel = "noopener noreferrer";
+      trigger.setAttribute("aria-label", "Open video attachment");
+      trigger.addEventListener("click", (event) => {
+        if (!shouldUseModal) {
+          return;
+        }
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
         openMediaModal(attachment);
       });
 
@@ -71,7 +87,7 @@ function renderMediaGallery(attachments) {
         preview.loading = "lazy";
         preview.src = attachment.previewUrl;
         preview.alt = attachment.description || "Attached video";
-        button.append(preview);
+        trigger.append(preview);
       } else {
         const previewVideo = document.createElement("video");
         previewVideo.className = "media-preview-video";
@@ -79,10 +95,10 @@ function renderMediaGallery(attachments) {
         previewVideo.muted = true;
         previewVideo.playsInline = true;
         previewVideo.src = attachment.url;
-        button.append(previewVideo);
+        trigger.append(previewVideo);
       }
 
-      figure.append(button);
+      figure.append(trigger);
     } else if (attachment.type === "audio") {
       const audio = document.createElement("audio");
       audio.controls = true;

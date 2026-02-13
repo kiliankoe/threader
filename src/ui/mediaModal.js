@@ -23,10 +23,6 @@ function sizeModalToMedia(width, height) {
 
   modalPanel.style.removeProperty("width");
 
-  if (window.innerWidth <= 720) {
-    return;
-  }
-
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return;
   }
@@ -43,7 +39,7 @@ function sizeModalToMedia(width, height) {
  * @param {HTMLElement} mediaElement
  */
 function sizeModalToRenderedMedia(mediaElement) {
-  if (!modalPanel || window.innerWidth <= 720) {
+  if (!modalPanel) {
     return;
   }
 
