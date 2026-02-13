@@ -161,7 +161,7 @@ h1 {
 
 .post-row {
     position: relative;
-    min-height: 118px;
+    min-height: 0;
     padding: 0 1.1rem;
     animation: reveal 220ms ease both;
 }
@@ -172,7 +172,7 @@ h1 {
 
 .post-card {
     min-width: 0;
-    padding: 0.72rem 0;
+    padding: 0.28rem 0;
 }
 
 .cw-content details > summary {
@@ -199,11 +199,11 @@ h1 {
 }
 
 .post-content :first-child {
-    margin-top: 0.1rem;
+    margin-top: 0;
 }
 
 .post-content :last-child {
-    margin-bottom: 0.2rem;
+    margin-bottom: 0;
 }
 
 .post-content a {
@@ -247,7 +247,7 @@ h1 {
 
 .post-meta {
     position: absolute;
-    top: 0.72rem;
+    top: 0.28rem;
     left: calc(100% + 1rem);
     width: 170px;
     font-size: 0.82rem;
