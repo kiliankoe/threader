@@ -1,22 +1,10 @@
 import { getCwPresentation } from "../core/cwPolicy.js";
 import { sanitizeHtml } from "../lib/sanitize.js";
 
-const numberFormatter = new Intl.NumberFormat(undefined, {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-/**
- * @param {number} value
- */
-function formatCount(value) {
-  return numberFormatter.format(Math.max(0, Number(value) || 0));
-}
 
 /**
  * @param {string} value
@@ -94,16 +82,6 @@ function renderMediaGallery(attachments) {
   }
 
   return gallery.childElementCount > 0 ? gallery : null;
-}
-
-/**
- * @param {string} value
- */
-function makeMetaItem(value) {
-  const div = document.createElement("div");
-  div.className = "post-meta-item";
-  div.textContent = value;
-  return div;
 }
 
 /**
@@ -378,26 +356,6 @@ export function renderPostCard(post, index, totalPosts) {
   dateLink.textContent = formatDate(post.createdAt);
   dateItem.append(dateLink);
   meta.append(dateItem);
-
-  if (cw.hasContentWarning) {
-    const cwItem = makeMetaItem("⚠ CW");
-    cwItem.classList.add("cw-tag");
-    cwItem.tabIndex = 0;
-    if (cw.text) {
-      cwItem.dataset.cwText = cw.text;
-      cwItem.title = cw.text;
-      cwItem.setAttribute("aria-label", `Content warning: ${cw.text}`);
-    } else {
-      cwItem.dataset.cwText = "Content warning";
-      cwItem.title = "Content warning";
-      cwItem.setAttribute("aria-label", "Content warning");
-    }
-    meta.append(cwItem);
-  }
-
-  meta.append(makeMetaItem(`↩ ${formatCount(post.counts.replies)}`));
-  meta.append(makeMetaItem(`↻ ${formatCount(post.counts.boosts)}`));
-  meta.append(makeMetaItem(`★ ${formatCount(post.counts.favourites)}`));
 
   row.append(content);
   row.append(meta);
