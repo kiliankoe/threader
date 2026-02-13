@@ -1,5 +1,8 @@
 import { buildMainlineThread } from "../core/threadBuilder.js";
 
+const MAX_PARENT_LOOKUPS = 120;
+const MAX_CONTEXT_EXPANSION_REQUESTS = 30;
+
 class FetchError extends Error {
   /**
    * @param {string} message
@@ -112,6 +115,140 @@ function normalizeStatus(raw, instance) {
   };
 }
 
+function asTimestamp(value) {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+  return parsed;
+}
+
+function compareByDate(a, b) {
+  const delta = asTimestamp(a.createdAt) - asTimestamp(b.createdAt);
+  if (delta !== 0) {
+    return delta;
+  }
+  return a.id.localeCompare(b.id);
+}
+
+/**
+ * Fetch missing same-author ancestors by following in_reply_to_id chain.
+ *
+ * @param {{
+ *   instance: string,
+ *   authorId: string,
+ *   posts: import('../core/types.js').ThreadPost[],
+ *   seenIds: Set<string>
+ * }} input
+ */
+async function extendAncestors(input) {
+  const posts = input.posts;
+  let head = posts[0];
+  let checks = 0;
+
+  while (
+    head &&
+    head.inReplyToId &&
+    !input.seenIds.has(head.inReplyToId) &&
+    checks < MAX_PARENT_LOOKUPS
+  ) {
+    checks += 1;
+    const endpoint = `https://${input.instance}/api/v1/statuses/${head.inReplyToId}`;
+
+    try {
+      const raw = await fetchJson(endpoint);
+      const parent = normalizeStatus(raw, input.instance);
+      if (parent.account.id !== input.authorId) {
+        break;
+      }
+
+      posts.unshift(parent);
+      input.seenIds.add(parent.id);
+      head = parent;
+    } catch {
+      break;
+    }
+  }
+}
+
+/**
+ * Expand same-author descendants past context cutoffs by walking contexts
+ * from the current tail post.
+ *
+ * @param {{
+ *   instance: string,
+ *   authorId: string,
+ *   posts: import('../core/types.js').ThreadPost[],
+ *   seenIds: Set<string>
+ * }} input
+ */
+async function extendDescendants(input) {
+  let hasAlternateBranches = false;
+  let tail = input.posts[input.posts.length - 1];
+  let requests = 0;
+
+  while (tail && requests < MAX_CONTEXT_EXPANSION_REQUESTS) {
+    requests += 1;
+    let contextRaw;
+    try {
+      contextRaw = await fetchJson(
+        `https://${input.instance}/api/v1/statuses/${tail.id}/context`
+      );
+    } catch {
+      break;
+    }
+
+    const sameAuthorDescendants = (contextRaw.descendants || [])
+      .map((status) => normalizeStatus(status, input.instance))
+      .filter((status) => status.account.id === input.authorId);
+
+    if (sameAuthorDescendants.length === 0) {
+      break;
+    }
+
+    /** @type {Map<string, import('../core/types.js').ThreadPost[]>} */
+    const childrenByParent = new Map();
+    for (const status of sameAuthorDescendants) {
+      if (!status.inReplyToId) {
+        continue;
+      }
+      const bucket = childrenByParent.get(status.inReplyToId) || [];
+      bucket.push(status);
+      childrenByParent.set(status.inReplyToId, bucket);
+    }
+
+    for (const children of childrenByParent.values()) {
+      children.sort(compareByDate);
+      if (children.length > 1) {
+        hasAlternateBranches = true;
+      }
+    }
+
+    let progressed = false;
+    while (true) {
+      const candidates = (childrenByParent.get(tail.id) || []).filter(
+        (status) => !input.seenIds.has(status.id)
+      );
+
+      if (candidates.length === 0) {
+        break;
+      }
+
+      const next = candidates[0];
+      input.posts.push(next);
+      input.seenIds.add(next.id);
+      tail = next;
+      progressed = true;
+    }
+
+    if (!progressed) {
+      break;
+    }
+  }
+
+  return hasAlternateBranches;
+}
+
 /**
  * @type {{
  * canHandleUrl: (inputUrl: string) => boolean,
@@ -155,14 +292,33 @@ export const mastodonAdapter = {
       descendants,
     });
 
+    const posts = [...built.posts];
+    const seenIds = new Set(posts.map((post) => post.id));
+    let hasAlternateBranches = built.hasAlternateBranches;
+
+    await extendAncestors({
+      instance: parsed.instance,
+      authorId,
+      posts,
+      seenIds,
+    });
+
+    const hadAltDuringExpansion = await extendDescendants({
+      instance: parsed.instance,
+      authorId,
+      posts,
+      seenIds,
+    });
+    hasAlternateBranches = hasAlternateBranches || hadAltDuringExpansion;
+
     return {
       platform: "mastodon",
       instance: parsed.instance,
       seedPostId: seedPost.id,
       sourceUrl: parsed.canonicalUrl,
       fetchedAt: new Date().toISOString(),
-      hasAlternateBranches: built.hasAlternateBranches,
-      posts: built.posts,
+      hasAlternateBranches,
+      posts,
       author: seedPost.account,
     };
   },
