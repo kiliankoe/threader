@@ -99,25 +99,26 @@ function renderMediaGallery(attachments) {
 /**
  * @param {string} value
  */
-function makeSeparatorItem(value) {
-  const span = document.createElement("span");
-  span.className = "separator-dot";
-  span.textContent = value;
-  return span;
+function makeMetaItem(value) {
+  const div = document.createElement("div");
+  div.className = "post-meta-item";
+  div.textContent = value;
+  return div;
 }
 
 /**
  * @param {import('../core/types.js').ThreadPost} post
  * @param {number} index
+ * @param {number} totalPosts
  */
-export function renderPostCard(post, index) {
+export function renderPostCard(post, index, totalPosts) {
+  const row = document.createElement("section");
+  row.className = "post-row";
+
   const article = document.createElement("article");
   article.className = "post-card";
 
-  const topline = document.createElement("div");
-  topline.className = "post-topline";
-  topline.textContent = `Post ${index + 1}`;
-  article.append(topline);
+  const isSinglePost = totalPosts === 1;
 
   const cw = getCwPresentation(post, index);
   const safeContent = sanitizeHtml(post.contentHtml);
@@ -127,28 +128,23 @@ export function renderPostCard(post, index) {
   contentWrapper.innerHTML = safeContent;
 
   if (cw.hasContentWarning && cw.startsCollapsed) {
-    const banner = document.createElement("p");
-    banner.className = "cw-banner";
-    banner.textContent = `Main post has content warning: ${cw.text}`;
-    article.append(banner);
-
     const detailsWrap = document.createElement("div");
     detailsWrap.className = "cw-content";
 
     const details = document.createElement("details");
     const summary = document.createElement("summary");
-    summary.textContent = cw.text ? `Show content (${cw.text})` : "Show content";
+    summary.textContent = cw.text
+      ? isSinglePost
+        ? `Show post (CW: ${cw.text})`
+        : `Show content (${cw.text})`
+      : isSinglePost
+        ? "Show post"
+        : "Show content";
     details.append(summary);
     details.append(contentWrapper);
     detailsWrap.append(details);
     article.append(detailsWrap);
   } else {
-    if (cw.hasContentWarning) {
-      const inline = document.createElement("p");
-      inline.className = "cw-inline";
-      inline.textContent = cw.text ? `CW: ${cw.text}` : "CW";
-      article.append(inline);
-    }
     article.append(contentWrapper);
   }
 
@@ -157,22 +153,40 @@ export function renderPostCard(post, index) {
     article.append(media);
   }
 
-  const foot = document.createElement("footer");
-  foot.className = "post-foot";
-  foot.append(document.createTextNode(formatDate(post.createdAt)));
-  foot.append(makeSeparatorItem(`replies ${formatCount(post.counts.replies)}`));
-  foot.append(makeSeparatorItem(`boosts ${formatCount(post.counts.boosts)}`));
-  foot.append(makeSeparatorItem(`favs ${formatCount(post.counts.favourites)}`));
+  const meta = document.createElement("aside");
+  meta.className = "post-meta";
+
+  if (cw.hasContentWarning) {
+    const cwItem = makeMetaItem("⚠ CW");
+    cwItem.classList.add("cw-tag");
+    cwItem.tabIndex = 0;
+    if (cw.text) {
+      cwItem.dataset.cwText = cw.text;
+      cwItem.title = cw.text;
+      cwItem.setAttribute("aria-label", `Content warning: ${cw.text}`);
+    } else {
+      cwItem.dataset.cwText = "Content warning";
+      cwItem.title = "Content warning";
+      cwItem.setAttribute("aria-label", "Content warning");
+    }
+    meta.append(cwItem);
+  }
+
+  meta.append(makeMetaItem(formatDate(post.createdAt)));
+  meta.append(makeMetaItem(`↩ ${formatCount(post.counts.replies)}`));
+  meta.append(makeMetaItem(`↻ ${formatCount(post.counts.boosts)}`));
+  meta.append(makeMetaItem(`★ ${formatCount(post.counts.favourites)}`));
 
   const openOriginal = document.createElement("a");
-  openOriginal.className = "status-link separator-dot";
+  openOriginal.className = "status-link post-meta-link";
   openOriginal.href = post.url;
   openOriginal.target = "_blank";
   openOriginal.rel = "noopener noreferrer";
-  openOriginal.textContent = "open original";
-  foot.append(openOriginal);
+  openOriginal.textContent = "link to post";
+  meta.append(openOriginal);
 
-  article.append(foot);
+  row.append(article);
+  row.append(meta);
 
-  return article;
+  return row;
 }

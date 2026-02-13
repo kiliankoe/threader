@@ -42,7 +42,7 @@ export function renderThread(container, thread) {
   shell.append(head);
 
   thread.posts.forEach((post, index) => {
-    shell.append(renderPostCard(post, index));
+    shell.append(renderPostCard(post, index, thread.posts.length));
   });
 
   container.append(shell);

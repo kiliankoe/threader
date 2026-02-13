@@ -121,6 +121,7 @@ h1 {
 
 .thread-root {
     margin-top: 1rem;
+    overflow: visible;
 }
 
 .thread-shell {
@@ -128,13 +129,16 @@ h1 {
     border: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface-strong) 90%, white 10%);
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow: visible;
+    width: 100%;
 }
 
 .thread-head {
     padding: 1rem 1.1rem;
     border-bottom: 1px solid var(--line);
     background: linear-gradient(180deg, #fbf7f1, #fffdfb);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
 }
 
 .thread-head h2 {
@@ -154,36 +158,21 @@ h1 {
     color: var(--muted);
 }
 
-.post-card {
-    padding: 1.05rem 1.1rem;
-    border-bottom: 1px solid var(--line);
+.post-row {
+    position: relative;
+    min-height: 132px;
+    padding: 0 1.1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 62%, white 38%);
     animation: reveal 220ms ease both;
 }
 
-.post-card:last-child {
+.post-row:last-child {
     border-bottom: 0;
 }
 
-.post-topline {
-    margin-bottom: 0.55rem;
-    font-size: 0.9rem;
-    color: var(--muted);
-}
-
-.cw-banner {
-    margin: 0 0 0.65rem;
-    border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line) 65%);
-    border-radius: 10px;
-    background: color-mix(in srgb, #fff2e3 70%, #fff 30%);
-    color: color-mix(in srgb, var(--warn) 90%, #2b211a 10%);
-    padding: 0.5rem 0.65rem;
-    font-size: 0.95rem;
-}
-
-.cw-inline {
-    margin: 0 0 0.5rem;
-    font-size: 0.9rem;
-    color: color-mix(in srgb, var(--warn) 70%, #2b211a 30%);
+.post-card {
+    min-width: 0;
+    padding: 1.2rem 0;
 }
 
 .cw-content details > summary {
@@ -251,24 +240,62 @@ h1 {
     width: 100%;
 }
 
-.post-foot {
-    margin-top: 0.75rem;
-    font-size: 0.9rem;
+.post-meta {
+    position: absolute;
+    top: 1.2rem;
+    left: calc(100% + 1rem);
+    width: 170px;
+    font-size: 0.82rem;
     color: var(--muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    align-items: center;
+    text-align: left;
+    line-height: 1.4;
 }
 
-.separator-dot::before {
-    content: "\00B7";
-    margin-right: 0.55rem;
+.post-meta-item + .post-meta-item {
+    margin-top: 0.32rem;
+}
+
+.cw-tag {
+    position: relative;
+    cursor: help;
+}
+
+.cw-tag::after {
+    content: attr(data-cw-text);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 0.3rem);
+    width: min(240px, 46vw);
+    border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--line) 68%);
+    background: color-mix(in srgb, #fff7ef 90%, #fff 10%);
+    color: #3a2c1f;
+    border-radius: 8px;
+    padding: 0.35rem 0.45rem;
+    box-shadow: 0 10px 20px -16px rgba(28, 20, 12, 0.6);
+    line-height: 1.35;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-2px);
+    transition: opacity 120ms ease, transform 120ms ease;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.cw-tag:hover::after,
+.cw-tag:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 .status-link {
     color: var(--accent);
     text-decoration-thickness: 1px;
+}
+
+.post-meta-link {
+    display: inline-block;
+    margin-top: 0.45rem;
 }
 
 .empty-state {
@@ -308,14 +335,56 @@ h1 {
         margin-top: 1rem;
     }
 
+    .thread-shell {
+        width: 100%;
+    }
+
     .hero,
     .thread-head,
-    .post-card {
+    .post-row {
         padding-left: 0.85rem;
         padding-right: 0.85rem;
     }
 
     .unfurl-form {
         grid-template-columns: 1fr;
+    }
+
+    .post-row {
+        position: static;
+        min-height: 0;
+    }
+
+    .post-meta {
+        position: static;
+        width: auto;
+        border-top: 1px solid color-mix(in srgb, var(--line) 70%, white 30%);
+        margin-top: 0;
+        padding-left: 0;
+        padding-top: 0.45rem;
+        text-align: left;
+    }
+
+    .post-meta-item {
+        display: inline;
+    }
+
+    .cw-tag::after {
+        left: 0;
+        top: calc(100% + 0.28rem);
+    }
+
+    .post-meta-item + .post-meta-item::before {
+        content: "\00B7";
+        margin: 0 0.45rem;
+    }
+
+    .post-meta-item + .post-meta-item {
+        margin-top: 0;
+    }
+
+    .post-meta-link {
+        display: block;
+        margin-top: 0.35rem;
     }
 }
