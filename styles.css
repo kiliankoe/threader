@@ -195,6 +195,7 @@ h1 {
     font-family: "Literata", "Iowan Old Style", "Palatino Linotype", serif;
     line-height: 1.72;
     font-size: clamp(1.03rem, 1.3vw, 1.11rem);
+    overflow-wrap: anywhere;
 }
 
 .post-content :first-child {
@@ -207,6 +208,8 @@ h1 {
 
 .post-content a {
     color: var(--accent);
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .media-grid {
@@ -234,6 +237,8 @@ h1 {
     color: var(--muted);
     font-size: 0.84rem;
     line-height: 1.3;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .media-item audio {
