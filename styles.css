@@ -16,15 +16,21 @@
     box-sizing: border-box;
 }
 
+html {
+    min-height: 100%;
+    background:
+        radial-gradient(1100px 460px at 100% -10%, #f2d8bf 0%, transparent 70%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    background-attachment: fixed;
+    background-color: var(--bg-bottom);
+}
+
 body {
     margin: 0;
     min-height: 100vh;
     font-family: "Source Sans 3", "Avenir Next", "Segoe UI", sans-serif;
     color: var(--text);
-    background:
-        radial-gradient(1100px 460px at 100% -10%, #f2d8bf 0%, transparent 70%),
-        radial-gradient(920px 420px at -15% 0%, #d3ebe0 0%, transparent 65%),
-        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    background: transparent;
 }
 
 .page-shell {
