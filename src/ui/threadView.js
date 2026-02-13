@@ -15,13 +15,13 @@ export function renderThread(container, thread) {
     return;
   }
 
-  const shell = document.createElement("section");
+  const shell = document.createElement("article");
   shell.className = "thread-shell";
 
   const head = document.createElement("header");
   head.className = "thread-head";
 
-  const title = document.createElement("h2");
+  const title = document.createElement("h1");
   title.textContent = `Thread by ${thread.author.displayName}`;
   head.append(title);
 

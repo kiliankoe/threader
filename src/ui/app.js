@@ -129,6 +129,7 @@ export function mountApp() {
       const thread = await adapter.fetchThread(submittedUrl);
       renderThread(root, thread);
       saveThreadToCache(submittedUrl, thread);
+      document.title = `Thread by ${thread.author.displayName} - Threader`;
 
       const noun = thread.posts.length === 1 ? "post" : "posts";
       setStatus(statusLine, `Loaded ${thread.posts.length} ${noun}.`);
@@ -136,6 +137,7 @@ export function mountApp() {
       const cached = loadThreadFromCache(submittedUrl);
       if (cached?.thread) {
         renderThread(root, cached.thread);
+        document.title = `Thread by ${cached.thread.author.displayName} - Threader`;
         setStatus(
           statusLine,
           `Could not refresh from network. Showing cached thread from ${formatCachedAt(cached.cachedAt)}.`,

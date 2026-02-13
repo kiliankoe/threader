@@ -112,11 +112,11 @@ function makeMetaItem(value) {
  * @param {number} totalPosts
  */
 export function renderPostCard(post, index, totalPosts) {
-  const row = document.createElement("section");
+  const row = document.createElement("div");
   row.className = "post-row";
 
-  const article = document.createElement("article");
-  article.className = "post-card";
+  const content = document.createElement("div");
+  content.className = "post-card";
 
   const isSinglePost = totalPosts === 1;
 
@@ -143,14 +143,14 @@ export function renderPostCard(post, index, totalPosts) {
     details.append(summary);
     details.append(contentWrapper);
     detailsWrap.append(details);
-    article.append(detailsWrap);
+    content.append(detailsWrap);
   } else {
-    article.append(contentWrapper);
+    content.append(contentWrapper);
   }
 
   const media = renderMediaGallery(post.attachments);
   if (media) {
-    article.append(media);
+    content.append(media);
   }
 
   const meta = document.createElement("aside");
@@ -188,7 +188,7 @@ export function renderPostCard(post, index, totalPosts) {
   meta.append(makeMetaItem(`↻ ${formatCount(post.counts.boosts)}`));
   meta.append(makeMetaItem(`★ ${formatCount(post.counts.favourites)}`));
 
-  row.append(article);
+  row.append(content);
   row.append(meta);
 
   return row;

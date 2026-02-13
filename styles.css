@@ -141,6 +141,7 @@ h1 {
     border-top-right-radius: 16px;
 }
 
+.thread-head h1,
 .thread-head h2 {
     font-family: "Literata", "Iowan Old Style", "Palatino Linotype", serif;
     margin: 0;
