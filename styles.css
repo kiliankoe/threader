@@ -160,19 +160,18 @@ h1 {
 
 .post-row {
     position: relative;
-    min-height: 132px;
+    min-height: 118px;
     padding: 0 1.1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--line) 62%, white 38%);
     animation: reveal 220ms ease both;
 }
 
-.post-row:last-child {
-    border-bottom: 0;
+.post-row + .post-row {
+    margin-top: 0.18rem;
 }
 
 .post-card {
     min-width: 0;
-    padding: 1.2rem 0;
+    padding: 0.95rem 0;
 }
 
 .cw-content details > summary {
@@ -242,7 +241,7 @@ h1 {
 
 .post-meta {
     position: absolute;
-    top: 1.2rem;
+    top: 0.95rem;
     left: calc(100% + 1rem);
     width: 170px;
     font-size: 0.82rem;
@@ -293,9 +292,8 @@ h1 {
     text-decoration-thickness: 1px;
 }
 
-.post-meta-link {
-    display: inline-block;
-    margin-top: 0.45rem;
+.post-meta-date-link {
+    color: inherit;
 }
 
 .empty-state {
@@ -355,36 +353,27 @@ h1 {
         min-height: 0;
     }
 
+    .post-row + .post-row {
+        margin-top: 0;
+    }
+
     .post-meta {
         position: static;
         width: auto;
-        border-top: 1px solid color-mix(in srgb, var(--line) 70%, white 30%);
+        font-size: 0.74rem;
+        line-height: 1.35;
         margin-top: 0;
         padding-left: 0;
-        padding-top: 0.45rem;
+        padding-top: 0.2rem;
         text-align: left;
     }
 
-    .post-meta-item {
-        display: inline;
+    .post-meta-item:not(.post-meta-date) {
+        display: none;
     }
 
     .cw-tag::after {
         left: 0;
         top: calc(100% + 0.28rem);
-    }
-
-    .post-meta-item + .post-meta-item::before {
-        content: "\00B7";
-        margin: 0 0.45rem;
-    }
-
-    .post-meta-item + .post-meta-item {
-        margin-top: 0;
-    }
-
-    .post-meta-link {
-        display: block;
-        margin-top: 0.35rem;
     }
 }

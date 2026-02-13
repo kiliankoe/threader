@@ -156,6 +156,18 @@ export function renderPostCard(post, index, totalPosts) {
   const meta = document.createElement("aside");
   meta.className = "post-meta";
 
+  const dateItem = document.createElement("div");
+  dateItem.className = "post-meta-item post-meta-date";
+
+  const dateLink = document.createElement("a");
+  dateLink.className = "status-link post-meta-date-link";
+  dateLink.href = post.url;
+  dateLink.target = "_blank";
+  dateLink.rel = "noopener noreferrer";
+  dateLink.textContent = formatDate(post.createdAt);
+  dateItem.append(dateLink);
+  meta.append(dateItem);
+
   if (cw.hasContentWarning) {
     const cwItem = makeMetaItem("⚠ CW");
     cwItem.classList.add("cw-tag");
@@ -172,18 +184,9 @@ export function renderPostCard(post, index, totalPosts) {
     meta.append(cwItem);
   }
 
-  meta.append(makeMetaItem(formatDate(post.createdAt)));
   meta.append(makeMetaItem(`↩ ${formatCount(post.counts.replies)}`));
   meta.append(makeMetaItem(`↻ ${formatCount(post.counts.boosts)}`));
   meta.append(makeMetaItem(`★ ${formatCount(post.counts.favourites)}`));
-
-  const openOriginal = document.createElement("a");
-  openOriginal.className = "status-link post-meta-link";
-  openOriginal.href = post.url;
-  openOriginal.target = "_blank";
-  openOriginal.rel = "noopener noreferrer";
-  openOriginal.textContent = "link to post";
-  meta.append(openOriginal);
 
   row.append(article);
   row.append(meta);
