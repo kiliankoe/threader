@@ -177,7 +177,6 @@ h1 {
 
 .thread-head {
     padding: 1rem 1.1rem;
-    border-bottom: 1px solid var(--line);
     background: linear-gradient(180deg, var(--thread-head-top), var(--thread-head-bottom));
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
@@ -191,7 +190,7 @@ h1 {
 }
 
 .thread-meta {
-    margin-top: 0.35rem;
+    margin: 0.35rem 0 0;
     color: var(--muted);
 }
 
