@@ -166,17 +166,13 @@ h1 {
     animation: reveal 220ms ease both;
 }
 
-.post-row + .post-row {
-    margin-top: 0.18rem;
-}
-
 .post-row:last-child {
     padding-bottom: 0.45rem;
 }
 
 .post-card {
     min-width: 0;
-    padding: 0.95rem 0;
+    padding: 0.72rem 0;
 }
 
 .cw-content details > summary {
@@ -251,7 +247,7 @@ h1 {
 
 .post-meta {
     position: absolute;
-    top: 0.95rem;
+    top: 0.72rem;
     left: calc(100% + 1rem);
     width: 170px;
     font-size: 0.82rem;

@@ -107,6 +107,216 @@ function makeMetaItem(value) {
 }
 
 /**
+ * @param {string} text
+ * @param {number} index
+ * @param {number} totalPosts
+ */
+function stripLeadingThreadMarkerFromText(text, index, totalPosts) {
+  if (totalPosts < 3) {
+    return text;
+  }
+
+  const postNumber = index + 1;
+
+  const slashWithTotal = text.match(
+    /^\s*\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/
+  );
+  if (slashWithTotal) {
+    const current = Number(slashWithTotal[1]);
+    const declaredTotal = Number(slashWithTotal[2]);
+    const plausibleTotal =
+      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+
+    if (current === postNumber && declaredTotal >= current && plausibleTotal) {
+      return text.slice(slashWithTotal[0].length);
+    }
+  }
+
+  const ofWithTotal = text.match(
+    /^\s*\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:\s+|[\-:.)\]–—]\s+)/i
+  );
+  if (ofWithTotal) {
+    const current = Number(ofWithTotal[1]);
+    const declaredTotal = Number(ofWithTotal[2]);
+    const plausibleTotal =
+      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+
+    if (current === postNumber && declaredTotal >= current && plausibleTotal) {
+      return text.slice(ofWithTotal[0].length);
+    }
+  }
+
+  const slashMarker = text.match(
+    /^\s*(\d{1,3})\s*\/(?!\d)(?:\s+|[\-:.)\]–—]\s+)/
+  );
+  if (slashMarker) {
+    const current = Number(slashMarker[1]);
+    if (current === postNumber) {
+      return text.slice(slashMarker[0].length);
+    }
+  }
+
+  return text;
+}
+
+/**
+ * @param {string} text
+ * @param {number} index
+ * @param {number} totalPosts
+ */
+function stripTrailingThreadMarkerFromText(text, index, totalPosts) {
+  if (totalPosts < 3) {
+    return text;
+  }
+
+  const postNumber = index + 1;
+
+  const slashWithTotal = text.match(
+    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s*\/\s*(\d{1,3})\)?(?:[.!?\])]+)?\s*$/
+  );
+  if (slashWithTotal) {
+    const current = Number(slashWithTotal[1]);
+    const declaredTotal = Number(slashWithTotal[2]);
+    const plausibleTotal =
+      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+
+    if (current === postNumber && declaredTotal >= current && plausibleTotal) {
+      return text.slice(0, text.length - slashWithTotal[0].length);
+    }
+  }
+
+  const ofWithTotal = text.match(
+    /(?:^|[\s([\{\-–—:])\(?(\d{1,3})\s+of\s+(\d{1,3})\)?(?:[.!?\])]+)?\s*$/i
+  );
+  if (ofWithTotal) {
+    const current = Number(ofWithTotal[1]);
+    const declaredTotal = Number(ofWithTotal[2]);
+    const plausibleTotal =
+      declaredTotal >= Math.max(3, totalPosts - 1) && declaredTotal <= totalPosts + 30;
+
+    if (current === postNumber && declaredTotal >= current && plausibleTotal) {
+      return text.slice(0, text.length - ofWithTotal[0].length);
+    }
+  }
+
+  const slashMarker = text.match(
+    /(?:^|[\s([\{\-–—:])(\d{1,3})\s*\/(?!\d)(?:[.!?\])]+)?\s*$/
+  );
+  if (slashMarker) {
+    const current = Number(slashMarker[1]);
+    if (current === postNumber) {
+      return text.slice(0, text.length - slashMarker[0].length);
+    }
+  }
+
+  return text;
+}
+
+/**
+ * @param {string} text
+ */
+function stripLeadingNewlinesFromText(text) {
+  return text.replace(/^(?:\s*\r?\n)+\s*/, "");
+}
+
+/**
+ * @param {string} text
+ */
+function stripTrailingNewlinesFromText(text) {
+  return text.replace(/\s*(?:\r?\n\s*)+$/, "");
+}
+
+/**
+ * @param {string} html
+ * @param {number} index
+ * @param {number} totalPosts
+ */
+function stripLeadingThreadMarker(html, index, totalPosts) {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) {
+    return html;
+  }
+
+  const walker = doc.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) {
+          return NodeFilter.FILTER_SKIP;
+        }
+
+        const tag = node.parentElement?.tagName || "";
+        if (tag === "CODE" || tag === "PRE" || tag === "SCRIPT" || tag === "STYLE") {
+          return NodeFilter.FILTER_SKIP;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    }
+  );
+
+  const textNodes = [];
+  while (true) {
+    const next = walker.nextNode();
+    if (!next) {
+      break;
+    }
+    textNodes.push(next);
+  }
+
+  const firstTextNode = textNodes[0];
+  if (!firstTextNode || !firstTextNode.nodeValue) {
+    return html;
+  }
+
+  let changed = false;
+
+  const cleanedLeading = stripLeadingThreadMarkerFromText(
+    firstTextNode.nodeValue,
+    index,
+    totalPosts
+  );
+  if (cleanedLeading !== firstTextNode.nodeValue) {
+    firstTextNode.nodeValue = cleanedLeading;
+    changed = true;
+  }
+
+  const withoutLeadingNewlines = stripLeadingNewlinesFromText(firstTextNode.nodeValue);
+  if (withoutLeadingNewlines !== firstTextNode.nodeValue) {
+    firstTextNode.nodeValue = withoutLeadingNewlines;
+    changed = true;
+  }
+
+  const lastTextNode = textNodes[textNodes.length - 1];
+  if (lastTextNode && lastTextNode.nodeValue) {
+    const cleanedTrailing = stripTrailingThreadMarkerFromText(
+      lastTextNode.nodeValue,
+      index,
+      totalPosts
+    );
+
+    if (cleanedTrailing !== lastTextNode.nodeValue) {
+      lastTextNode.nodeValue = cleanedTrailing;
+      changed = true;
+    }
+
+    const withoutTrailingNewlines = stripTrailingNewlinesFromText(lastTextNode.nodeValue);
+    if (withoutTrailingNewlines !== lastTextNode.nodeValue) {
+      lastTextNode.nodeValue = withoutTrailingNewlines;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return html;
+  }
+
+  return root.innerHTML;
+}
+
+/**
  * @param {import('../core/types.js').ThreadPost} post
  * @param {number} index
  * @param {number} totalPosts
@@ -122,10 +332,11 @@ export function renderPostCard(post, index, totalPosts) {
 
   const cw = getCwPresentation(post, index);
   const safeContent = sanitizeHtml(post.contentHtml);
+  const cleanedContent = stripLeadingThreadMarker(safeContent, index, totalPosts);
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "post-content";
-  contentWrapper.innerHTML = safeContent;
+  contentWrapper.innerHTML = cleanedContent;
 
   if (cw.hasContentWarning && cw.startsCollapsed) {
     const detailsWrap = document.createElement("div");
