@@ -249,7 +249,7 @@ h1 {
     position: absolute;
     top: 0.28rem;
     left: calc(100% + 1rem);
-    width: 170px;
+    width: min(170px, max(0px, calc((100vw - 860px) / 2 - 1rem)));
     font-size: 0.82rem;
     color: var(--muted);
     text-align: left;
@@ -262,7 +262,11 @@ h1 {
 }
 
 .post-meta-date-link {
+    display: inline-block;
+    max-width: 100%;
     color: inherit;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .empty-state {
@@ -317,23 +321,7 @@ h1 {
         grid-template-columns: 1fr;
     }
 
-    .post-row {
-        position: static;
-        min-height: 0;
-    }
-
-    .post-row + .post-row {
-        margin-top: 0;
-    }
-
     .post-meta {
-        position: static;
-        width: auto;
-        font-size: 0.74rem;
-        line-height: 1.35;
-        margin-top: 0;
-        padding-left: 0;
-        padding-top: 0.2rem;
-        text-align: left;
+        display: none;
     }
 }
