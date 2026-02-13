@@ -1,5 +1,6 @@
 import { getCwPresentation } from "../core/cwPolicy.js";
 import { sanitizeHtml } from "../lib/sanitize.js";
+import { openMediaModal } from "./mediaModal.js";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -38,9 +39,17 @@ function renderMediaGallery(attachments) {
 
     if (attachment.type === "image") {
       const anchor = document.createElement("a");
+      anchor.className = "media-trigger-link";
       anchor.href = attachment.url || attachment.previewUrl;
       anchor.target = "_blank";
       anchor.rel = "noopener noreferrer";
+      anchor.addEventListener("click", (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        openMediaModal(attachment);
+      });
 
       const image = document.createElement("img");
       image.loading = "lazy";
@@ -49,14 +58,31 @@ function renderMediaGallery(attachments) {
       anchor.append(image);
       figure.append(anchor);
     } else if (attachment.type === "video" || attachment.type === "gifv") {
-      const video = document.createElement("video");
-      video.controls = true;
-      video.preload = "metadata";
-      video.src = attachment.url;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "media-trigger";
+      button.setAttribute("aria-label", "Open video attachment");
+      button.addEventListener("click", () => {
+        openMediaModal(attachment);
+      });
+
       if (attachment.previewUrl) {
-        video.poster = attachment.previewUrl;
+        const preview = document.createElement("img");
+        preview.loading = "lazy";
+        preview.src = attachment.previewUrl;
+        preview.alt = attachment.description || "Attached video";
+        button.append(preview);
+      } else {
+        const previewVideo = document.createElement("video");
+        previewVideo.className = "media-preview-video";
+        previewVideo.preload = "metadata";
+        previewVideo.muted = true;
+        previewVideo.playsInline = true;
+        previewVideo.src = attachment.url;
+        button.append(previewVideo);
       }
-      figure.append(video);
+
+      figure.append(button);
     } else if (attachment.type === "audio") {
       const audio = document.createElement("audio");
       audio.controls = true;
