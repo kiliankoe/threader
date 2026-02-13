@@ -29,7 +29,7 @@ function renderMediaGallery(attachments) {
   gallery.className = "media-grid";
 
   for (const attachment of attachments) {
-    if (!attachment.url) {
+    if (!attachment.url && !attachment.previewUrl) {
       continue;
     }
 
@@ -38,13 +38,13 @@ function renderMediaGallery(attachments) {
 
     if (attachment.type === "image") {
       const anchor = document.createElement("a");
-      anchor.href = attachment.url;
+      anchor.href = attachment.url || attachment.previewUrl;
       anchor.target = "_blank";
       anchor.rel = "noopener noreferrer";
 
       const image = document.createElement("img");
       image.loading = "lazy";
-      image.src = attachment.previewUrl || attachment.url;
+      image.src = attachment.url || attachment.previewUrl || "";
       image.alt = attachment.description || "Attached image";
       anchor.append(image);
       figure.append(anchor);
