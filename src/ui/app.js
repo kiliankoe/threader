@@ -2,6 +2,9 @@ import { getAdapterForUrl } from "../platforms/adapter.js";
 import { renderThread } from "./threadView.js";
 
 const CACHE_PREFIX = "threader-cache-v1:";
+const THREAD_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 1100;
+const AUTO_LOAD_COOLDOWN_MS = 250;
 
 /**
  * @param {string} url
@@ -13,12 +16,14 @@ function cacheKey(url) {
 /**
  * @param {string} url
  * @param {import('../core/types.js').Thread} thread
+ * @param {boolean} hasMore
  */
-function saveThreadToCache(url, thread) {
+function saveThreadToCache(url, thread, hasMore = false) {
   try {
     const payload = {
       cachedAt: new Date().toISOString(),
       thread,
+      hasMore,
     };
     localStorage.setItem(cacheKey(url), JSON.stringify(payload));
   } catch {
@@ -43,6 +48,42 @@ function loadThreadFromCache(url) {
   } catch {
     return null;
   }
+}
+
+/**
+ * @param {string} iso
+ */
+function isCacheFresh(iso) {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  return Date.now() - parsed <= THREAD_CACHE_TTL_MS;
+}
+
+/**
+ * @param {any} result
+ */
+function normalizeAdapterResult(result) {
+  if (result && result.thread && Array.isArray(result.thread.posts)) {
+    return {
+      thread: result.thread,
+      hasMore: Boolean(result.hasMore),
+      addedCount: Number(result.addedCount || 0),
+      rateLimitedUntil: Number(result.rateLimitedUntil || 0),
+    };
+  }
+
+  if (result && Array.isArray(result.posts)) {
+    return {
+      thread: result,
+      hasMore: false,
+      addedCount: 0,
+      rateLimitedUntil: 0,
+    };
+  }
+
+  throw new Error("Could not parse thread response from adapter.");
 }
 
 /**
@@ -104,6 +145,138 @@ export function mountApp() {
     throw new Error("App mount failed: missing required DOM elements.");
   }
 
+  let activeAdapter = null;
+  let activeThread = null;
+  let activeUrl = "";
+  let hasMoreThread = false;
+  let loadingMore = false;
+  let nextContinuationAllowedAt = 0;
+  let activeSession = 0;
+  let lastAutoLoadAttemptAt = 0;
+
+  function isNearBottom() {
+    return (
+      window.scrollY + window.innerHeight >=
+      document.documentElement.scrollHeight - AUTO_LOAD_BOTTOM_THRESHOLD_PX
+    );
+  }
+
+  function renderActiveThread() {
+    if (!activeThread) {
+      root.innerHTML = "";
+      return;
+    }
+    renderThread(root, activeThread);
+  }
+
+  function canContinueThread() {
+    return Boolean(
+      activeAdapter &&
+        typeof activeAdapter.continueThread === "function" &&
+        activeThread &&
+        hasMoreThread,
+    );
+  }
+
+  async function maybeAutoLoadMore() {
+    if (button.disabled || !canContinueThread() || loadingMore || !isNearBottom()) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastAutoLoadAttemptAt < AUTO_LOAD_COOLDOWN_MS) {
+      return;
+    }
+    if (now < nextContinuationAllowedAt) {
+      return;
+    }
+
+    lastAutoLoadAttemptAt = now;
+    loadingMore = true;
+    const session = activeSession;
+
+    try {
+      const beforeCount = activeThread?.posts.length || 0;
+      const previousScrollHeight = document.documentElement.scrollHeight;
+      const previousScrollY = window.scrollY;
+
+      setStatus(statusLine, "Loading more posts...");
+
+      const raw = await activeAdapter.continueThread(activeThread, {
+        maxContextRequests: 3,
+      });
+      if (session !== activeSession) {
+        return;
+      }
+
+      const result = normalizeAdapterResult(raw);
+      activeThread = result.thread;
+      hasMoreThread = result.hasMore;
+
+      if (result.rateLimitedUntil > Date.now()) {
+        nextContinuationAllowedAt = result.rateLimitedUntil;
+      }
+
+      const addedCount =
+        result.addedCount || Math.max(0, activeThread.posts.length - beforeCount);
+
+      if (addedCount === 0 && result.rateLimitedUntil <= Date.now()) {
+        hasMoreThread = false;
+      }
+
+      if (addedCount > 0) {
+        renderActiveThread();
+        saveThreadToCache(activeUrl, activeThread, hasMoreThread);
+
+        const newScrollHeight = document.documentElement.scrollHeight;
+        const delta = newScrollHeight - previousScrollHeight;
+        if (delta > 0 && isNearBottom()) {
+          window.scrollTo({ top: previousScrollY + delta });
+        }
+      }
+
+      if (result.rateLimitedUntil > Date.now()) {
+        const seconds = Math.max(
+          1,
+          Math.ceil((result.rateLimitedUntil - Date.now()) / 1000),
+        );
+        setStatus(
+          statusLine,
+          `Rate limited by server. Continuing in about ${seconds}s...`,
+          "warning",
+        );
+        window.setTimeout(() => {
+          if (session === activeSession) {
+            void maybeAutoLoadMore();
+          }
+        }, Math.max(250, result.rateLimitedUntil - Date.now()));
+      } else {
+        setStatus(statusLine, "");
+      }
+
+      if (hasMoreThread && addedCount > 0 && isNearBottom()) {
+        window.requestAnimationFrame(() => {
+          void maybeAutoLoadMore();
+        });
+      }
+    } catch (error) {
+      if (session !== activeSession) {
+        return;
+      }
+
+      hasMoreThread = false;
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not continue loading this thread.";
+      setStatus(statusLine, message, "warning");
+    } finally {
+      if (session === activeSession) {
+        loadingMore = false;
+      }
+    }
+  }
+
   async function runLoad() {
     const submittedUrl = input.value.trim();
     if (!submittedUrl) {
@@ -121,20 +294,76 @@ export function mountApp() {
       return;
     }
 
+    const session = activeSession + 1;
+    activeSession = session;
+    activeAdapter = adapter;
+    activeUrl = submittedUrl;
+    activeThread = null;
+    hasMoreThread = false;
+    loadingMore = false;
+    nextContinuationAllowedAt = 0;
+
     syncUrlQuery(input);
-    setStatus(statusLine, "Loading thread...");
     button.disabled = true;
 
+    const cached = loadThreadFromCache(submittedUrl);
+    if (cached?.thread) {
+      activeThread = cached.thread;
+      hasMoreThread = Boolean(cached.hasMore);
+      renderActiveThread();
+      document.title = `Thread by ${cached.thread.author.displayName} - Threader`;
+
+      if (isCacheFresh(cached.cachedAt)) {
+        setStatus(statusLine, "Loaded from local cache.");
+        button.disabled = false;
+        if (hasMoreThread) {
+          window.requestAnimationFrame(() => {
+            void maybeAutoLoadMore();
+          });
+        }
+        return;
+      }
+
+      setStatus(
+        statusLine,
+        `Refreshing cached thread from ${formatCachedAt(cached.cachedAt)}...`,
+      );
+    } else {
+      setStatus(statusLine, "Loading thread...");
+    }
+
     try {
-      const thread = await adapter.fetchThread(submittedUrl);
-      renderThread(root, thread);
-      saveThreadToCache(submittedUrl, thread);
-      document.title = `Thread by ${thread.author.displayName} - Threader`;
+      const raw = await adapter.fetchThread(submittedUrl, {
+        initialContextRequests: 3,
+      });
+      if (session !== activeSession) {
+        return;
+      }
+
+      const result = normalizeAdapterResult(raw);
+      activeThread = result.thread;
+      hasMoreThread = result.hasMore;
+      nextContinuationAllowedAt = Math.max(0, result.rateLimitedUntil || 0);
+
+      renderActiveThread();
+      saveThreadToCache(submittedUrl, activeThread, hasMoreThread);
+      document.title = `Thread by ${activeThread.author.displayName} - Threader`;
       setStatus(statusLine, "");
+
+      if (hasMoreThread && isNearBottom()) {
+        window.requestAnimationFrame(() => {
+          void maybeAutoLoadMore();
+        });
+      }
     } catch (error) {
-      const cached = loadThreadFromCache(submittedUrl);
+      if (session !== activeSession) {
+        return;
+      }
+
       if (cached?.thread) {
-        renderThread(root, cached.thread);
+        activeThread = cached.thread;
+        hasMoreThread = Boolean(cached.hasMore);
+        renderActiveThread();
         document.title = `Thread by ${cached.thread.author.displayName} - Threader`;
         setStatus(
           statusLine,
@@ -147,16 +376,31 @@ export function mountApp() {
             ? error.message
             : "Unknown error while loading.";
         setStatus(statusLine, message, "error");
-        root.innerHTML = "";
+        activeThread = null;
+        hasMoreThread = false;
+        renderActiveThread();
       }
     } finally {
-      button.disabled = false;
+      if (session === activeSession) {
+        button.disabled = false;
+      }
     }
   }
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     void runLoad();
+  });
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      void maybeAutoLoadMore();
+    },
+    { passive: true },
+  );
+  window.addEventListener("resize", () => {
+    void maybeAutoLoadMore();
   });
 
   const prefilled = new URL(window.location.href).searchParams.get("url");

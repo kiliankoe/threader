@@ -1,7 +1,16 @@
 import { buildMainlineThread } from "../core/threadBuilder.js";
 
-const MAX_PARENT_LOOKUPS = 120;
-const MAX_CONTEXT_EXPANSION_REQUESTS = 30;
+const INITIAL_PARENT_LOOKUPS = 12;
+const INITIAL_CONTEXT_EXPANSION_REQUESTS = 3;
+const CONTINUE_CONTEXT_EXPANSION_REQUESTS = 3;
+const REQUEST_GAP_MS = 180;
+const RESPONSE_CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_RETRY_AFTER_MS = 60 * 1000;
+
+const inFlightJsonByEndpoint = new Map();
+const responseCacheByEndpoint = new Map();
+const hostRequestChains = new Map();
+const hostLastRequestAt = new Map();
 
 class FetchError extends Error {
   /**
@@ -13,6 +22,92 @@ class FetchError extends Error {
     this.name = "FetchError";
     this.status = status;
   }
+}
+
+class RateLimitError extends FetchError {
+  /**
+   * @param {string} message
+   * @param {number} status
+   * @param {number} retryAfterMs
+   */
+  constructor(message, status, retryAfterMs) {
+    super(message, status);
+    this.name = "RateLimitError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/**
+ * @param {number} ms
+ */
+function delay(ms) {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * @param {string | null} value
+ */
+function parseRetryAfterMs(value) {
+  if (!value) {
+    return 2_000;
+  }
+
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber) && asNumber >= 0) {
+    return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, Math.round(asNumber * 1000)));
+  }
+
+  const asDate = Date.parse(value);
+  if (!Number.isNaN(asDate)) {
+    return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, asDate - Date.now()));
+  }
+
+  return 2_000;
+}
+
+/**
+ * @template T
+ * @param {T} value
+ * @returns {T}
+ */
+function cloneJson(value) {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * @template T
+ * @param {string} endpoint
+ * @param {() => Promise<T>} task
+ * @returns {Promise<T>}
+ */
+function runWithHostThrottle(endpoint, task) {
+  const host = new URL(endpoint).host;
+  const previous = hostRequestChains.get(host) || Promise.resolve();
+
+  const next = previous.catch(() => {}).then(async () => {
+    const now = Date.now();
+    const lastAt = hostLastRequestAt.get(host) || 0;
+    const waitMs = REQUEST_GAP_MS - (now - lastAt);
+    if (waitMs > 0) {
+      await delay(waitMs);
+    }
+    hostLastRequestAt.set(host, Date.now());
+    return task();
+  });
+
+  const settled = next.finally(() => {
+    if (hostRequestChains.get(host) === settled) {
+      hostRequestChains.delete(host);
+    }
+  });
+
+  hostRequestChains.set(host, settled);
+  return settled;
 }
 
 /**
@@ -52,28 +147,61 @@ function parseMastodonStatusUrl(inputUrl) {
  * @param {string} endpoint
  */
 async function fetchJson(endpoint) {
-  const response = await fetch(endpoint, {
-    headers: {
-      Accept: "application/json",
-    },
-    mode: "cors",
-  });
-
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const body = await response.json();
-      detail = body?.error ? ` ${body.error}` : "";
-    } catch {
-      detail = "";
-    }
-    throw new FetchError(
-      `Mastodon API request failed (${response.status}).${detail}`,
-      response.status,
-    );
+  const cached = responseCacheByEndpoint.get(endpoint);
+  if (cached && Date.now() - cached.cachedAt <= RESPONSE_CACHE_TTL_MS) {
+    return cloneJson(cached.value);
   }
 
-  return response.json();
+  const inFlight = inFlightJsonByEndpoint.get(endpoint);
+  if (inFlight) {
+    return cloneJson(await inFlight);
+  }
+
+  const requestPromise = runWithHostThrottle(endpoint, async () => {
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+      },
+      mode: "cors",
+    });
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body?.error ? ` ${body.error}` : "";
+      } catch {
+        detail = "";
+      }
+
+      if (response.status === 429) {
+        const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
+        throw new RateLimitError(
+          `Mastodon API is rate limiting requests. Retrying soon.${detail}`,
+          response.status,
+          retryAfterMs,
+        );
+      }
+
+      throw new FetchError(
+        `Mastodon API request failed (${response.status}).${detail}`,
+        response.status,
+      );
+    }
+
+    const json = await response.json();
+    responseCacheByEndpoint.set(endpoint, {
+      value: json,
+      cachedAt: Date.now(),
+    });
+    return json;
+  }).finally(() => {
+    inFlightJsonByEndpoint.delete(endpoint);
+  });
+
+  inFlightJsonByEndpoint.set(endpoint, requestPromise);
+
+  return cloneJson(await requestPromise);
 }
 
 /**
@@ -142,15 +270,17 @@ function compareByDate(a, b) {
  * }} input
  */
 async function extendAncestors(input) {
+  const maxLookups = Number(input.maxLookups || INITIAL_PARENT_LOOKUPS);
   const posts = input.posts;
   let head = posts[0];
   let checks = 0;
+  let rateLimitedUntil = 0;
 
   while (
     head &&
     head.inReplyToId &&
     !input.seenIds.has(head.inReplyToId) &&
-    checks < MAX_PARENT_LOOKUPS
+    checks < maxLookups
   ) {
     checks += 1;
     const endpoint = `https://${input.instance}/api/v1/statuses/${head.inReplyToId}`;
@@ -165,10 +295,17 @@ async function extendAncestors(input) {
       posts.unshift(parent);
       input.seenIds.add(parent.id);
       head = parent;
-    } catch {
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        rateLimitedUntil = Date.now() + error.retryAfterMs;
+      }
       break;
     }
   }
+
+  return {
+    rateLimitedUntil,
+  };
 }
 
 /**
@@ -183,18 +320,40 @@ async function extendAncestors(input) {
  * }} input
  */
 async function extendDescendants(input) {
+  const maxRequests = Number(
+    input.maxContextRequests || CONTINUE_CONTEXT_EXPANSION_REQUESTS,
+  );
+
   let hasAlternateBranches = false;
   let tail = input.posts[input.posts.length - 1];
+  let addedCount = 0;
+  let rateLimitedUntil = 0;
   let requests = 0;
+  let hasMore = true;
 
-  while (tail && requests < MAX_CONTEXT_EXPANSION_REQUESTS) {
+  if (!tail) {
+    return {
+      addedCount,
+      hasAlternateBranches,
+      hasMore: false,
+      rateLimitedUntil,
+    };
+  }
+
+  while (tail && requests < maxRequests) {
     requests += 1;
     let contextRaw;
     try {
       contextRaw = await fetchJson(
         `https://${input.instance}/api/v1/statuses/${tail.id}/context`,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        rateLimitedUntil = Date.now() + error.retryAfterMs;
+        hasMore = true;
+      } else {
+        hasMore = false;
+      }
       break;
     }
 
@@ -203,6 +362,7 @@ async function extendDescendants(input) {
       .filter((status) => status.account.id === input.authorId);
 
     if (sameAuthorDescendants.length === 0) {
+      hasMore = false;
       break;
     }
 
@@ -238,22 +398,55 @@ async function extendDescendants(input) {
       input.posts.push(next);
       input.seenIds.add(next.id);
       tail = next;
+      addedCount += 1;
       progressed = true;
     }
 
     if (!progressed) {
+      hasMore = false;
       break;
     }
   }
 
-  return hasAlternateBranches;
+  if (requests >= maxRequests && hasMore !== false) {
+    hasMore = true;
+  }
+
+  return {
+    addedCount,
+    hasAlternateBranches,
+    hasMore,
+    rateLimitedUntil,
+  };
+}
+
+/**
+ * @param {{
+ *  parsed: { instance: string, canonicalUrl: string },
+ *  seedPost: import('../core/types.js').ThreadPost,
+ *  posts: import('../core/types.js').ThreadPost[],
+ *  hasAlternateBranches: boolean
+ * }} input
+ */
+function buildThreadResult(input) {
+  return {
+    platform: "mastodon",
+    instance: input.parsed.instance,
+    seedPostId: input.seedPost.id,
+    sourceUrl: input.parsed.canonicalUrl,
+    fetchedAt: new Date().toISOString(),
+    hasAlternateBranches: input.hasAlternateBranches,
+    posts: input.posts,
+    author: input.seedPost.account,
+  };
 }
 
 /**
  * @type {{
  * canHandleUrl: (inputUrl: string) => boolean,
  * parseUrl: (inputUrl: string) => { instance: string, statusId: string, canonicalUrl: string },
- * fetchThread: (inputUrl: string) => Promise<import('../core/types.js').Thread>
+ * fetchThread: (inputUrl: string, options?: { initialContextRequests?: number, maxParentLookups?: number }) => Promise<{ thread: import('../core/types.js').Thread, hasMore: boolean, addedCount: number, rateLimitedUntil: number }>,
+ * continueThread: (thread: import('../core/types.js').Thread, options?: { maxContextRequests?: number }) => Promise<{ thread: import('../core/types.js').Thread, hasMore: boolean, addedCount: number, rateLimitedUntil: number }>
  * }}
  */
 export const mastodonAdapter = {
@@ -266,7 +459,7 @@ export const mastodonAdapter = {
     return parseMastodonStatusUrl(inputUrl);
   },
 
-  async fetchThread(inputUrl) {
+  async fetchThread(inputUrl, options = {}) {
     const parsed = parseMastodonStatusUrl(inputUrl);
     const base = `https://${parsed.instance}/api/v1/statuses/${parsed.statusId}`;
 
@@ -296,32 +489,86 @@ export const mastodonAdapter = {
     const seenIds = new Set(posts.map((post) => post.id));
     let hasAlternateBranches = built.hasAlternateBranches;
 
-    await extendAncestors({
+    const ancestorResult = await extendAncestors({
       instance: parsed.instance,
       authorId,
       posts,
       seenIds,
+      maxLookups: options.maxParentLookups || INITIAL_PARENT_LOOKUPS,
     });
 
-    const hadAltDuringExpansion = await extendDescendants({
+    const descendantResult = await extendDescendants({
       instance: parsed.instance,
       authorId,
       posts,
       seenIds,
+      maxContextRequests:
+        options.initialContextRequests || INITIAL_CONTEXT_EXPANSION_REQUESTS,
     });
-    hasAlternateBranches = hasAlternateBranches || hadAltDuringExpansion;
+
+    hasAlternateBranches =
+      hasAlternateBranches || descendantResult.hasAlternateBranches;
+
+    const thread = buildThreadResult({
+      parsed,
+      seedPost,
+      posts,
+      hasAlternateBranches,
+    });
 
     return {
-      platform: "mastodon",
-      instance: parsed.instance,
-      seedPostId: seedPost.id,
-      sourceUrl: parsed.canonicalUrl,
-      fetchedAt: new Date().toISOString(),
-      hasAlternateBranches,
+      thread,
+      hasMore: descendantResult.hasMore,
+      addedCount: descendantResult.addedCount,
+      rateLimitedUntil: Math.max(
+        ancestorResult.rateLimitedUntil,
+        descendantResult.rateLimitedUntil,
+      ),
+    };
+  },
+
+  async continueThread(thread, options = {}) {
+    if (!thread || thread.platform !== "mastodon" || !Array.isArray(thread.posts)) {
+      throw new Error("Cannot continue thread: invalid thread payload.");
+    }
+
+    if (!thread.posts.length) {
+      return {
+        thread,
+        hasMore: false,
+        addedCount: 0,
+        rateLimitedUntil: 0,
+      };
+    }
+
+    const posts = [...thread.posts];
+    const seenIds = new Set(posts.map((post) => post.id));
+    const authorId = thread.author?.id || posts[0].account.id;
+
+    const descendantResult = await extendDescendants({
+      instance: thread.instance,
+      authorId,
       posts,
-      author: seedPost.account,
+      seenIds,
+      maxContextRequests:
+        options.maxContextRequests || CONTINUE_CONTEXT_EXPANSION_REQUESTS,
+    });
+
+    const nextThread = {
+      ...thread,
+      fetchedAt: new Date().toISOString(),
+      hasAlternateBranches:
+        thread.hasAlternateBranches || descendantResult.hasAlternateBranches,
+      posts,
+    };
+
+    return {
+      thread: nextThread,
+      hasMore: descendantResult.hasMore,
+      addedCount: descendantResult.addedCount,
+      rateLimitedUntil: descendantResult.rateLimitedUntil,
     };
   },
 };
 
-export { FetchError };
+export { FetchError, RateLimitError };
