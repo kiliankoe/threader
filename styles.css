@@ -278,6 +278,7 @@ h1 {
 
 .media-item {
     margin: 0;
+    position: relative;
 }
 
 .media-trigger-link {
@@ -321,12 +322,20 @@ h1 {
     }
 }
 
-.media-preview-video {
-    width: 100%;
-    display: block;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--media-bg);
+.media-item-video::before {
+    content: "Video";
+    position: absolute;
+    top: 0.55rem;
+    left: 0.55rem;
+    z-index: 1;
+    pointer-events: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.52);
+    border-radius: 999px;
+    padding: 0.18rem 0.45rem;
 }
 
 .media-item figcaption {

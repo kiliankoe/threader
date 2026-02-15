@@ -69,40 +69,23 @@ function renderMediaGallery(attachments) {
       anchor.append(image);
       figure.append(anchor);
     } else if (attachment.type === "video" || attachment.type === "gifv") {
-      const trigger = document.createElement("a");
-      trigger.className = "media-trigger-link";
-      trigger.href = attachment.url || attachment.previewUrl;
-      trigger.target = "_blank";
-      trigger.rel = "noopener noreferrer";
-      trigger.setAttribute("aria-label", "Open video attachment");
-      trigger.addEventListener("click", (event) => {
-        if (!shouldUseModal) {
-          return;
-        }
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-          return;
-        }
-        event.preventDefault();
-        openMediaModal(attachment);
-      });
+      figure.classList.add("media-item-video");
 
+      const video = document.createElement("video");
+      video.controls = true;
+      video.preload = "none";
+      video.playsInline = true;
+      video.src = attachment.url || attachment.previewUrl || "";
       if (attachment.previewUrl) {
-        const preview = document.createElement("img");
-        preview.loading = "lazy";
-        preview.src = attachment.previewUrl;
-        preview.alt = attachment.description || "Attached video";
-        trigger.append(preview);
+        video.poster = attachment.previewUrl;
+      }
+      if (attachment.description) {
+        video.setAttribute("aria-label", attachment.description);
       } else {
-        const previewVideo = document.createElement("video");
-        previewVideo.className = "media-preview-video";
-        previewVideo.preload = "metadata";
-        previewVideo.muted = true;
-        previewVideo.playsInline = true;
-        previewVideo.src = attachment.url;
-        trigger.append(previewVideo);
+        video.setAttribute("aria-label", "Video attachment");
       }
 
-      figure.append(trigger);
+      figure.append(video);
     } else if (attachment.type === "audio") {
       const audio = document.createElement("audio");
       audio.controls = true;
