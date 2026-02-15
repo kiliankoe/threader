@@ -26,6 +26,8 @@ function renderMediaGallery(attachments) {
     return null;
   }
 
+  const useHighResInlineImages = attachments.length === 1;
+
   const shouldUseModal =
     typeof window !== "undefined" &&
     !window.matchMedia("(max-width: 720px)").matches;
@@ -60,7 +62,9 @@ function renderMediaGallery(attachments) {
 
       const image = document.createElement("img");
       image.loading = "lazy";
-      image.src = attachment.url || attachment.previewUrl || "";
+      image.src = useHighResInlineImages
+        ? attachment.url || attachment.previewUrl || ""
+        : attachment.previewUrl || attachment.url || "";
       image.alt = attachment.description || "Attached image";
       anchor.append(image);
       figure.append(anchor);
