@@ -14,7 +14,7 @@
 
 /**
  * @typedef {Object} Thread
- * @property {"mastodon"} platform
+ * @property {"mastodon" | "bluesky"} platform
  * @property {string} instance
  * @property {string} seedPostId
  * @property {string} sourceUrl

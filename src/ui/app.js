@@ -280,7 +280,7 @@ export function mountApp() {
   async function runLoad() {
     const submittedUrl = input.value.trim();
     if (!submittedUrl) {
-      setStatus(statusLine, "Please paste a Mastodon status URL.", "error");
+      setStatus(statusLine, "Please paste a Mastodon or Bluesky post URL.", "error");
       return;
     }
 
@@ -288,7 +288,7 @@ export function mountApp() {
     if (!adapter) {
       setStatus(
         statusLine,
-        "That URL does not look like a supported Mastodon status.",
+        "That URL does not look like a supported Mastodon or Bluesky post.",
         "error",
       );
       return;

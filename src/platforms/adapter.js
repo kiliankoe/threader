@@ -1,6 +1,7 @@
 import { mastodonAdapter } from "./mastodon.js";
+import { blueskyAdapter } from "./bluesky.js";
 
-const adapters = [mastodonAdapter];
+const adapters = [mastodonAdapter, blueskyAdapter];
 
 /**
  * @param {string} inputUrl

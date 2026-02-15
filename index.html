@@ -6,28 +6,25 @@
         <title>Threader</title>
         <meta
             name="description"
-            content="Unfurl Mastodon threads into a clean reader view."
+            content="Unfurl Mastodon and Bluesky threads into a clean reader view."
         />
         <link rel="stylesheet" href="./styles.css" />
-        <script
-            defer
-            src="./vendor/dompurify/purify.min.js"
-        ></script>
+        <script defer src="./vendor/dompurify/purify.min.js"></script>
         <script type="module" src="./src/main.js"></script>
     </head>
     <body>
         <div class="page-shell">
             <header class="hero">
-                <p class="kicker">Fediverse thread unfurler</p>
+                <p class="kicker">Social thread unfurler</p>
                 <h1>Threader</h1>
                 <p class="lead">
-                    Paste one public Mastodon post URL to read the full
-                    same-author thread like a single article.
+                    Paste one public Mastodon or Bluesky post URL to read the
+                    full thread like a single article.
                 </p>
 
                 <form id="unfurl-form" class="unfurl-form" novalidate>
                     <label for="status-url" class="sr-only"
-                        >Mastodon status URL</label
+                        >Mastodon or Bluesky post URL</label
                     >
                     <input
                         id="status-url"
@@ -35,7 +32,7 @@
                         type="url"
                         autocomplete="url"
                         required
-                        placeholder="https://mamot.fr/@pluralistic/116056780900371801"
+                        placeholder="https://example.com/link-to-thread"
                     />
                     <button id="unfurl-button" type="submit">
                         Unfurl thread
