@@ -69,8 +69,6 @@ function renderMediaGallery(attachments) {
       anchor.append(image);
       figure.append(anchor);
     } else if (attachment.type === "video" || attachment.type === "gifv") {
-      figure.classList.add("media-item-video");
-
       const video = document.createElement("video");
       video.controls = true;
       video.preload = "none";

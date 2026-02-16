@@ -313,29 +313,14 @@ h1 {
 }
 
 @media (min-width: 721px) {
-    .media-item img {
+    .media-item img,
+    .media-item video {
         width: auto;
         max-width: 100%;
         height: auto;
         max-height: 520px;
         margin-inline: auto;
     }
-}
-
-.media-item-video::before {
-    content: "Video";
-    position: absolute;
-    top: 0.55rem;
-    left: 0.55rem;
-    z-index: 1;
-    pointer-events: none;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.52);
-    border-radius: 999px;
-    padding: 0.18rem 0.45rem;
 }
 
 .media-item figcaption {
