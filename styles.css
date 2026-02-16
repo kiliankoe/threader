@@ -223,6 +223,10 @@ h1 {
     animation: reveal 220ms ease both;
 }
 
+.post-row + .post-row {
+    margin-top: 0.26rem;
+}
+
 .post-row:last-child {
     padding-bottom: 0.45rem;
 }
@@ -253,6 +257,18 @@ h1 {
     line-height: 1.72;
     font-size: clamp(1.03rem, 1.3vw, 1.11rem);
     overflow-wrap: anywhere;
+}
+
+.post-content p {
+    margin: 0;
+}
+
+.post-content p + p {
+    margin-top: 0.42em;
+}
+
+.post-content br + br {
+    display: none;
 }
 
 .post-content :first-child {
