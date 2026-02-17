@@ -159,6 +159,29 @@ h1 {
     cursor: progress;
 }
 
+.advanced-settings {
+    margin-top: 0.7rem;
+    padding-top: 0.55rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.advanced-settings > summary {
+    cursor: pointer;
+    user-select: none;
+}
+
+.advanced-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    margin-top: 0.5rem;
+}
+
+.advanced-option input {
+    accent-color: var(--accent);
+}
+
 .status-line {
     margin-top: 0.9rem;
     min-height: 1.25rem;
@@ -225,6 +248,23 @@ h1 {
 
 .post-row + .post-row {
     margin-top: 0.26rem;
+}
+
+.post-row + .post-gap-note {
+    margin-top: 0.2rem;
+}
+
+.post-gap-note + .post-row {
+    margin-top: 0.18rem;
+}
+
+.post-gap-note {
+    margin: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: var(--muted);
+    opacity: 0.86;
 }
 
 .post-row:last-child {

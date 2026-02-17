@@ -102,14 +102,22 @@ function setStatus(statusLine, message, tone = "info") {
 
 /**
  * @param {HTMLInputElement} input
+ * @param {{ showTimeGaps: boolean }} options
  */
-function syncUrlQuery(input) {
+function syncUrlQueryWithOptions(input, options) {
   const current = new URL(window.location.href);
   if (input.value.trim()) {
     current.searchParams.set("url", input.value.trim());
   } else {
     current.searchParams.delete("url");
   }
+
+  if (options.showTimeGaps) {
+    current.searchParams.set("gaps", "");
+  } else {
+    current.searchParams.delete("gaps");
+  }
+
   window.history.replaceState({}, "", current);
 }
 
@@ -129,21 +137,28 @@ function formatCachedAt(iso) {
 }
 
 export function mountApp() {
+  const pageParams = new URL(window.location.href).searchParams;
+  let showTimeGaps = pageParams.has("gaps");
+
   const form = document.getElementById("unfurl-form");
   const input = document.getElementById("status-url");
   const button = document.getElementById("unfurl-button");
   const root = document.getElementById("thread-root");
   const statusLine = document.getElementById("status-line");
+  const gapsSetting = document.getElementById("setting-gaps");
 
   if (
     !(form instanceof HTMLFormElement) ||
     !(input instanceof HTMLInputElement) ||
     !(button instanceof HTMLButtonElement) ||
     !(root instanceof HTMLElement) ||
-    !(statusLine instanceof HTMLElement)
+    !(statusLine instanceof HTMLElement) ||
+    !(gapsSetting instanceof HTMLInputElement)
   ) {
     throw new Error("App mount failed: missing required DOM elements.");
   }
+
+  gapsSetting.checked = showTimeGaps;
 
   let activeAdapter = null;
   let activeThread = null;
@@ -166,20 +181,27 @@ export function mountApp() {
       root.innerHTML = "";
       return;
     }
-    renderThread(root, activeThread);
+    renderThread(root, activeThread, {
+      showTimeGaps,
+    });
   }
 
   function canContinueThread() {
     return Boolean(
       activeAdapter &&
-        typeof activeAdapter.continueThread === "function" &&
-        activeThread &&
-        hasMoreThread,
+      typeof activeAdapter.continueThread === "function" &&
+      activeThread &&
+      hasMoreThread,
     );
   }
 
   async function maybeAutoLoadMore() {
-    if (button.disabled || !canContinueThread() || loadingMore || !isNearBottom()) {
+    if (
+      button.disabled ||
+      !canContinueThread() ||
+      loadingMore ||
+      !isNearBottom()
+    ) {
       return;
     }
 
@@ -218,7 +240,8 @@ export function mountApp() {
       }
 
       const addedCount =
-        result.addedCount || Math.max(0, activeThread.posts.length - beforeCount);
+        result.addedCount ||
+        Math.max(0, activeThread.posts.length - beforeCount);
 
       if (addedCount === 0 && result.rateLimitedUntil <= Date.now()) {
         hasMoreThread = false;
@@ -245,11 +268,14 @@ export function mountApp() {
           `Rate limited by server. Continuing in about ${seconds}s...`,
           "warning",
         );
-        window.setTimeout(() => {
-          if (session === activeSession) {
-            void maybeAutoLoadMore();
-          }
-        }, Math.max(250, result.rateLimitedUntil - Date.now()));
+        window.setTimeout(
+          () => {
+            if (session === activeSession) {
+              void maybeAutoLoadMore();
+            }
+          },
+          Math.max(250, result.rateLimitedUntil - Date.now()),
+        );
       } else {
         setStatus(statusLine, "");
       }
@@ -280,7 +306,11 @@ export function mountApp() {
   async function runLoad() {
     const submittedUrl = input.value.trim();
     if (!submittedUrl) {
-      setStatus(statusLine, "Please paste a Mastodon or Bluesky post URL.", "error");
+      setStatus(
+        statusLine,
+        "Please paste a Mastodon or Bluesky post URL.",
+        "error",
+      );
       return;
     }
 
@@ -303,7 +333,9 @@ export function mountApp() {
     loadingMore = false;
     nextContinuationAllowedAt = 0;
 
-    syncUrlQuery(input);
+    syncUrlQueryWithOptions(input, {
+      showTimeGaps,
+    });
     button.disabled = true;
 
     const cached = loadThreadFromCache(submittedUrl);
@@ -390,6 +422,17 @@ export function mountApp() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     void runLoad();
+  });
+
+  gapsSetting.addEventListener("change", () => {
+    showTimeGaps = gapsSetting.checked;
+    syncUrlQueryWithOptions(input, {
+      showTimeGaps,
+    });
+
+    if (activeThread) {
+      renderActiveThread();
+    }
   });
 
   window.addEventListener(
