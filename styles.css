@@ -288,6 +288,24 @@ body.minimal-mode .post-row {
     font-size: clamp(1.2rem, 2vw, 1.45rem);
 }
 
+.thread-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.thread-title-link:hover {
+    text-decoration: underline;
+}
+
+.thread-meta-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.thread-meta-link:hover {
+    text-decoration: underline;
+}
+
 .thread-meta {
     margin: 0.35rem 0 0;
     color: var(--muted);

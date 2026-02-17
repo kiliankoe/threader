@@ -78,13 +78,38 @@ export function renderThread(container, thread, options = {}) {
   head.className = "thread-head";
 
   const title = document.createElement("h1");
-  title.textContent = `Thread by ${thread.author.displayName}`;
+  const rootPostUrl = thread.posts[0]?.url || thread.sourceUrl || "";
+  if (rootPostUrl) {
+    const titleLink = document.createElement("a");
+    titleLink.className = "thread-title-link";
+    titleLink.href = rootPostUrl;
+    titleLink.target = "_blank";
+    titleLink.rel = "noopener noreferrer";
+    titleLink.textContent = `Thread by ${thread.author.displayName}`;
+    title.append(titleLink);
+  } else {
+    title.textContent = `Thread by ${thread.author.displayName}`;
+  }
   head.append(title);
 
   const meta = document.createElement("p");
   meta.className = "thread-meta";
   const postLabel = thread.posts.length === 1 ? "post" : "posts";
-  meta.textContent = `${thread.posts.length} ${postLabel} from @${thread.author.acct}`;
+  meta.append(`${thread.posts.length} ${postLabel} from `);
+
+  const acct = thread.author?.acct || thread.author?.username || "unknown";
+  const profileUrl = thread.author?.url || "";
+  if (profileUrl) {
+    const profileLink = document.createElement("a");
+    profileLink.className = "thread-meta-link";
+    profileLink.href = profileUrl;
+    profileLink.target = "_blank";
+    profileLink.rel = "noopener noreferrer";
+    profileLink.textContent = `@${acct}`;
+    meta.append(profileLink);
+  } else {
+    meta.append(`@${acct}`);
+  }
   head.append(meta);
 
   if (thread.hasAlternateBranches) {
