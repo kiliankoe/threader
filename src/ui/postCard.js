@@ -406,131 +406,243 @@ function getYouTubeEmbedUrl(href) {
 /**
  * @param {string} href
  */
-function isYouTubeUrl(href) {
-  return Boolean(getYouTubeEmbedUrl(href));
+function getPeerTubeEmbedUrl(href) {
+  let url;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+
+  let videoId = null;
+  const watchMatch = url.pathname.match(/^\/videos\/watch\/([^/?#]+)/);
+  const embedMatch = url.pathname.match(/^\/videos\/embed\/([^/?#]+)/);
+  const shortMatch = url.pathname.match(/^\/w\/([^/?#]+)/);
+
+  if (watchMatch) {
+    videoId = watchMatch[1];
+  } else if (embedMatch) {
+    videoId = embedMatch[1];
+  } else if (shortMatch && /^[a-zA-Z0-9_-]{6,}$/.test(shortMatch[1])) {
+    videoId = shortMatch[1];
+  }
+
+  if (!videoId) {
+    return null;
+  }
+
+  const embedUrl = new URL(`/videos/embed/${videoId}`, `${url.protocol}//${url.host}`);
+  const startSeconds = parseYouTubeStartSeconds(url);
+  if (startSeconds) {
+    embedUrl.searchParams.set("start", String(startSeconds));
+  }
+
+  return embedUrl.toString();
+}
+
+/**
+ * @param {string} href
+ */
+function getEmbeddableVideoUrl(href) {
+  return getYouTubeEmbedUrl(href) || getPeerTubeEmbedUrl(href);
+}
+
+/**
+ * @param {string} href
+ */
+function normalizeUrlKey(href) {
+  try {
+    return new URL(href).toString();
+  } catch {
+    return String(href || "");
+  }
+}
+
+/**
+ * @param {string} sourceUrl
+ * @param {string} embedUrl
+ */
+function createVideoEmbed(sourceUrl, embedUrl) {
+  const embed = document.createElement("div");
+  embed.className = "youtube-embed";
+
+  const iframe = document.createElement("iframe");
+  iframe.src = embedUrl;
+  iframe.loading = "lazy";
+  iframe.allowFullscreen = true;
+  iframe.referrerPolicy = "strict-origin-when-cross-origin";
+  iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+  iframe.title = "Embedded video";
+  embed.append(iframe);
+
+  const sourceLink = document.createElement("a");
+  sourceLink.className = "youtube-embed-link";
+  sourceLink.href = sourceUrl;
+  sourceLink.target = "_blank";
+  sourceLink.rel = "noopener noreferrer nofollow";
+  sourceLink.textContent = sourceUrl;
+  embed.append(sourceLink);
+
+  return embed;
+}
+
+/**
+ * @param {HTMLAnchorElement} link
+ */
+function getStandalonePlacement(link) {
+  const parent = link.parentElement;
+  if (!parent) {
+    return null;
+  }
+
+  let standaloneByParent = true;
+  for (const node of parent.childNodes) {
+    if (node === link) {
+      continue;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE && !(node.nodeValue || "").trim()) {
+      continue;
+    }
+
+    standaloneByParent = false;
+    break;
+  }
+
+  if (standaloneByParent) {
+    return {
+      parent,
+      replaceParent: true,
+    };
+  }
+
+  let previousSignificant = null;
+  let cursor = link.previousSibling;
+  while (cursor) {
+    if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
+      cursor = cursor.previousSibling;
+      continue;
+    }
+    previousSignificant = cursor;
+    break;
+  }
+
+  let nextSignificant = null;
+  cursor = link.nextSibling;
+  while (cursor) {
+    if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
+      cursor = cursor.nextSibling;
+      continue;
+    }
+    nextSignificant = cursor;
+    break;
+  }
+
+  const previousIsBreak =
+    previousSignificant instanceof HTMLBRElement ||
+    previousSignificant?.nodeName === "BR";
+  const nextIsBreakOrMissing =
+    !nextSignificant ||
+    nextSignificant instanceof HTMLBRElement ||
+    nextSignificant?.nodeName === "BR";
+
+  if (!previousIsBreak || !nextIsBreakOrMissing) {
+    return null;
+  }
+
+  return {
+    parent,
+    replaceParent: false,
+  };
 }
 
 /**
  * @param {HTMLElement} container
  */
-function replaceYouTubeLinksWithEmbeds(container) {
+function processVideoLinksInContent(container) {
+  const inlineVideoKeys = new Set();
+  const deferredVideoUrls = new Map();
   const links = Array.from(container.querySelectorAll("a[href]"));
+
   for (const link of links) {
-    const parent = link.parentElement;
-    if (!parent) {
+    if (!(link instanceof HTMLAnchorElement)) {
       continue;
     }
 
-    let replaceParent = true;
-
-    let isStandalone = true;
-    for (const node of parent.childNodes) {
-      if (node === link) {
-        continue;
-      }
-
-      if (node.nodeType === Node.TEXT_NODE) {
-        if ((node.nodeValue || "").trim()) {
-          isStandalone = false;
-          break;
-        }
-        continue;
-      }
-
-      isStandalone = false;
-      break;
-    }
-
-    if (!isStandalone) {
-      let previousSignificant = null;
-      let cursor = link.previousSibling;
-      while (cursor) {
-        if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
-          cursor = cursor.previousSibling;
-          continue;
-        }
-        previousSignificant = cursor;
-        break;
-      }
-
-      let nextSignificant = null;
-      cursor = link.nextSibling;
-      while (cursor) {
-        if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
-          cursor = cursor.nextSibling;
-          continue;
-        }
-        nextSignificant = cursor;
-        break;
-      }
-
-      const previousIsBreak =
-        previousSignificant instanceof HTMLBRElement ||
-        previousSignificant?.nodeName === "BR";
-      const nextIsBreakOrMissing =
-        !nextSignificant ||
-        nextSignificant instanceof HTMLBRElement ||
-        nextSignificant?.nodeName === "BR";
-
-      const isOwnLineAfterBreak = previousIsBreak && nextIsBreakOrMissing;
-      if (!isOwnLineAfterBreak) {
-        continue;
-      }
-
-      replaceParent = false;
-    }
-
-    const embedUrl = getYouTubeEmbedUrl(link.href);
+    const embedUrl = getEmbeddableVideoUrl(link.href);
     if (!embedUrl) {
       continue;
     }
 
-    const embed = document.createElement("div");
-    embed.className = "youtube-embed";
+    const urlKey = normalizeUrlKey(link.href);
+    const standalonePlacement = getStandalonePlacement(link);
+    if (!standalonePlacement) {
+      if (!deferredVideoUrls.has(urlKey)) {
+        deferredVideoUrls.set(urlKey, link.href);
+      }
+      continue;
+    }
 
-    const iframe = document.createElement("iframe");
-    iframe.src = embedUrl;
-    iframe.loading = "lazy";
-    iframe.allowFullscreen = true;
-    iframe.referrerPolicy = "strict-origin-when-cross-origin";
-    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-    iframe.title = "Embedded YouTube video";
-
-    embed.append(iframe);
-
-    const sourceLink = document.createElement("a");
-    sourceLink.className = "youtube-embed-link";
-    sourceLink.href = link.href;
-    sourceLink.target = "_blank";
-    sourceLink.rel = "noopener noreferrer nofollow";
-    sourceLink.textContent = link.href;
-    embed.append(sourceLink);
-
-    if (replaceParent) {
-      parent.replaceWith(embed);
+    const embed = createVideoEmbed(link.href, embedUrl);
+    if (standalonePlacement.replaceParent) {
+      standalonePlacement.parent.replaceWith(embed);
     } else {
       link.replaceWith(embed);
     }
+    inlineVideoKeys.add(urlKey);
+    deferredVideoUrls.delete(urlKey);
   }
+
+  return {
+    inlineVideoKeys,
+    deferredVideoUrls,
+  };
 }
 
 /**
  * @param {import('../core/types.js').ThreadPost['linkEmbeds']} linkEmbeds
+ * @param {{ inlineVideoKeys: Set<string>, deferredVideoUrls: Map<string, string> }} videoLinkState
  */
-function renderLinkEmbeds(linkEmbeds) {
-  if (!Array.isArray(linkEmbeds) || !linkEmbeds.length) {
+function renderLinkEmbeds(linkEmbeds, videoLinkState) {
+  if (
+    (!Array.isArray(linkEmbeds) || !linkEmbeds.length) &&
+    (!videoLinkState || videoLinkState.deferredVideoUrls.size === 0)
+  ) {
     return null;
   }
 
   const wrapper = document.createElement("div");
   wrapper.className = "link-embed-list";
+  const renderedVideoKeys = new Set(videoLinkState?.inlineVideoKeys || []);
+
+  for (const [urlKey, sourceUrl] of videoLinkState?.deferredVideoUrls || []) {
+    if (renderedVideoKeys.has(urlKey)) {
+      continue;
+    }
+
+    const embedUrl = getEmbeddableVideoUrl(sourceUrl);
+    if (!embedUrl) {
+      continue;
+    }
+
+    wrapper.append(createVideoEmbed(sourceUrl, embedUrl));
+    renderedVideoKeys.add(urlKey);
+  }
 
   for (const embed of linkEmbeds) {
     if (!embed || !embed.url) {
       continue;
     }
 
-    if (isYouTubeUrl(embed.url)) {
+    const urlKey = normalizeUrlKey(embed.url);
+    const videoEmbedUrl = getEmbeddableVideoUrl(embed.url);
+    if (videoEmbedUrl) {
+      if (renderedVideoKeys.has(urlKey)) {
+        continue;
+      }
+
+      wrapper.append(createVideoEmbed(embed.url, videoEmbedUrl));
+      renderedVideoKeys.add(urlKey);
       continue;
     }
 
@@ -617,7 +729,7 @@ export function renderPostCard(post, index, totalPosts) {
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "post-content";
   contentWrapper.innerHTML = cleanedContent;
-  replaceYouTubeLinksWithEmbeds(contentWrapper);
+  const videoLinkState = processVideoLinksInContent(contentWrapper);
 
   if (cw.hasContentWarning && cw.startsCollapsed) {
     const detailsWrap = document.createElement("div");
@@ -640,7 +752,7 @@ export function renderPostCard(post, index, totalPosts) {
     content.append(contentWrapper);
   }
 
-  const linkEmbeds = renderLinkEmbeds(post.linkEmbeds || []);
+  const linkEmbeds = renderLinkEmbeds(post.linkEmbeds || [], videoLinkState);
   if (linkEmbeds) {
     content.append(linkEmbeds);
   }
