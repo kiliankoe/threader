@@ -205,6 +205,42 @@ async function fetchJson(endpoint) {
 }
 
 /**
+ * @param {any} card
+ * @param {string} postId
+ */
+function linkEmbedsFromCard(card, postId) {
+  if (!card || typeof card !== "object") {
+    return [];
+  }
+
+  const url = typeof card.url === "string" ? card.url : "";
+  if (!url) {
+    return [];
+  }
+
+  const title = typeof card.title === "string" ? card.title : "";
+  const description = typeof card.description === "string" ? card.description : "";
+  const siteName =
+    typeof card.provider_name === "string" ? card.provider_name : "";
+  const imageUrl = typeof card.image === "string" && card.image ? card.image : null;
+
+  if (!title && !description && !imageUrl) {
+    return [];
+  }
+
+  return [
+    {
+      id: `${postId}-card`,
+      url,
+      title,
+      description,
+      siteName,
+      imageUrl,
+    },
+  ];
+}
+
+/**
  * @param {any} raw
  * @param {string} instance
  */
@@ -240,6 +276,7 @@ function normalizeStatus(raw, instance) {
           description: attachment.description || "",
         }))
       : [],
+    linkEmbeds: linkEmbedsFromCard(raw.card, String(raw.id || "")),
   };
 }
 

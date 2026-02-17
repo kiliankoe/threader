@@ -484,6 +484,63 @@ function attachmentsFromEmbed(embed, postId) {
 }
 
 /**
+ * @param {string} url
+ */
+function hostFromUrl(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * @param {any} embed
+ * @param {string} postId
+ */
+function linkEmbedsFromEmbed(embed, postId) {
+  if (!embed || typeof embed !== "object") {
+    return [];
+  }
+
+  if (embed.$type === "app.bsky.embed.external#view") {
+    const external = embed.external || {};
+    const url = String(external.uri || "");
+    if (!url) {
+      return [];
+    }
+
+    const title = String(external.title || "");
+    const description = String(external.description || "");
+    const imageUrl =
+      typeof external.thumb === "string" && external.thumb
+        ? external.thumb
+        : null;
+
+    if (!title && !description && !imageUrl) {
+      return [];
+    }
+
+    return [
+      {
+        id: `${postId}-external`,
+        url,
+        title,
+        description,
+        siteName: hostFromUrl(url),
+        imageUrl,
+      },
+    ];
+  }
+
+  if (embed.$type === "app.bsky.embed.recordWithMedia#view") {
+    return linkEmbedsFromEmbed(embed.media, postId);
+  }
+
+  return [];
+}
+
+/**
  * @param {any} post
  */
 function normalizePost(post) {
@@ -512,6 +569,7 @@ function normalizePost(post) {
       url: `https://bsky.app/profile/${handle}`,
     },
     attachments: attachmentsFromEmbed(post?.embed, id),
+    linkEmbeds: linkEmbedsFromEmbed(post?.embed, id),
   };
 }
 

@@ -10,6 +10,7 @@
  * @property {{ replies: number, boosts: number, favourites: number }} counts
  * @property {{ id: string, username: string, acct: string, displayName: string, url: string }} account
  * @property {Array<{ id: string, type: string, url: string, previewUrl: string|null, description: string }>} attachments
+ * @property {Array<{ id: string, url: string, title: string, description: string, siteName: string, imageUrl: string|null }>} linkEmbeds
  */
 
 /**

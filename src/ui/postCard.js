@@ -404,6 +404,13 @@ function getYouTubeEmbedUrl(href) {
 }
 
 /**
+ * @param {string} href
+ */
+function isYouTubeUrl(href) {
+  return Boolean(getYouTubeEmbedUrl(href));
+}
+
+/**
  * @param {HTMLElement} container
  */
 function replaceYouTubeLinksWithEmbeds(container) {
@@ -467,6 +474,84 @@ function replaceYouTubeLinksWithEmbeds(container) {
 }
 
 /**
+ * @param {import('../core/types.js').ThreadPost['linkEmbeds']} linkEmbeds
+ */
+function renderLinkEmbeds(linkEmbeds) {
+  if (!Array.isArray(linkEmbeds) || !linkEmbeds.length) {
+    return null;
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "link-embed-list";
+
+  for (const embed of linkEmbeds) {
+    if (!embed || !embed.url) {
+      continue;
+    }
+
+    if (isYouTubeUrl(embed.url)) {
+      continue;
+    }
+
+    const hasPreviewData = Boolean(
+      embed.title || embed.description || embed.imageUrl || embed.siteName,
+    );
+    if (!hasPreviewData) {
+      continue;
+    }
+
+    const card = document.createElement("article");
+    card.className = "link-preview-card";
+
+    const cardLink = document.createElement("a");
+    cardLink.className = "link-preview-main";
+    cardLink.href = embed.url;
+    cardLink.target = "_blank";
+    cardLink.rel = "noopener noreferrer nofollow";
+
+    if (embed.imageUrl) {
+      const image = document.createElement("img");
+      image.className = "link-preview-image";
+      image.loading = "lazy";
+      image.src = embed.imageUrl;
+      image.alt = "";
+      cardLink.append(image);
+    }
+
+    const body = document.createElement("div");
+    body.className = "link-preview-body";
+
+    if (embed.title) {
+      const title = document.createElement("p");
+      title.className = "link-preview-title";
+      title.textContent = embed.title;
+      body.append(title);
+    }
+
+    if (embed.description) {
+      const description = document.createElement("p");
+      description.className = "link-preview-description";
+      description.textContent = embed.description;
+      body.append(description);
+    }
+
+    if (embed.siteName) {
+      const meta = document.createElement("p");
+      meta.className = "link-preview-meta";
+      meta.textContent = embed.siteName;
+      body.append(meta);
+    }
+
+    cardLink.append(body);
+    card.append(cardLink);
+
+    wrapper.append(card);
+  }
+
+  return wrapper.childElementCount > 0 ? wrapper : null;
+}
+
+/**
  * @param {import('../core/types.js').ThreadPost} post
  * @param {number} index
  * @param {number} totalPosts
@@ -512,6 +597,11 @@ export function renderPostCard(post, index, totalPosts) {
     content.append(detailsWrap);
   } else {
     content.append(contentWrapper);
+  }
+
+  const linkEmbeds = renderLinkEmbeds(post.linkEmbeds || []);
+  if (linkEmbeds) {
+    content.append(linkEmbeds);
   }
 
   const media = renderMediaGallery(post.attachments);
