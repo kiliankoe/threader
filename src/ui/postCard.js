@@ -1,5 +1,6 @@
 import { getCwPresentation } from "../core/cwPolicy.js";
 import { sanitizeHtml } from "../lib/sanitize.js";
+import { replaceCustomEmojiShortcodes } from "./customEmoji.js";
 import { openMediaModal } from "./mediaModal.js";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -730,6 +731,7 @@ export function renderPostCard(post, index, totalPosts) {
   contentWrapper.className = "post-content";
   contentWrapper.innerHTML = cleanedContent;
   const videoLinkState = processVideoLinksInContent(contentWrapper);
+  replaceCustomEmojiShortcodes(contentWrapper, post.customEmojis || []);
 
   if (cw.hasContentWarning && cw.startsCollapsed) {
     const detailsWrap = document.createElement("div");

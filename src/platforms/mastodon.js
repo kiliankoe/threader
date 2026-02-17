@@ -205,6 +205,33 @@ async function fetchJson(endpoint) {
 }
 
 /**
+ * @param {any[]} rawEmojis
+ */
+function normalizeCustomEmojis(rawEmojis) {
+  if (!Array.isArray(rawEmojis) || rawEmojis.length === 0) {
+    return [];
+  }
+
+  const byShortcode = new Map();
+  for (const emoji of rawEmojis) {
+    const shortcode = typeof emoji?.shortcode === "string" ? emoji.shortcode : "";
+    const url =
+      (typeof emoji?.url === "string" && emoji.url) ||
+      (typeof emoji?.static_url === "string" && emoji.static_url) ||
+      "";
+    if (!shortcode || !url || byShortcode.has(shortcode)) {
+      continue;
+    }
+    byShortcode.set(shortcode, {
+      shortcode,
+      url,
+    });
+  }
+
+  return Array.from(byShortcode.values());
+}
+
+/**
  * @param {any} card
  * @param {string} postId
  */
@@ -247,6 +274,13 @@ function linkEmbedsFromCard(card, postId) {
 function normalizeStatus(raw, instance) {
   const account = raw.account || {};
   const username = account.username || "unknown";
+  const accountCustomEmojis = normalizeCustomEmojis(account.emojis || []);
+  const statusCustomEmojis = normalizeCustomEmojis(raw.emojis || []);
+  const mergedCustomEmojis = normalizeCustomEmojis([
+    ...(raw.emojis || []),
+    ...(account.emojis || []),
+  ]);
+
   return {
     id: String(raw.id),
     url: raw.url || `https://${instance}/@${username}/${raw.id}`,
@@ -266,6 +300,7 @@ function normalizeStatus(raw, instance) {
       acct: account.acct || username,
       displayName: account.display_name || username,
       url: account.url || `https://${instance}/@${username}`,
+      customEmojis: accountCustomEmojis,
     },
     attachments: Array.isArray(raw.media_attachments)
       ? raw.media_attachments.map((attachment) => ({
@@ -277,6 +312,9 @@ function normalizeStatus(raw, instance) {
         }))
       : [],
     linkEmbeds: linkEmbedsFromCard(raw.card, String(raw.id || "")),
+    customEmojis: statusCustomEmojis.length
+      ? mergedCustomEmojis
+      : accountCustomEmojis,
   };
 }
 

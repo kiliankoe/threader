@@ -567,9 +567,11 @@ function normalizePost(post) {
       acct: handle,
       displayName: author.displayName || handle,
       url: `https://bsky.app/profile/${handle}`,
+      customEmojis: [],
     },
     attachments: attachmentsFromEmbed(post?.embed, id),
     linkEmbeds: linkEmbedsFromEmbed(post?.embed, id),
+    customEmojis: [],
   };
 }
 

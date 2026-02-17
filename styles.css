@@ -403,6 +403,13 @@ body.minimal-mode .post-row {
     word-break: break-word;
 }
 
+.custom-emoji {
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    vertical-align: -0.2em;
+}
+
 .youtube-embed {
     width: 100%;
     max-width: 820px;

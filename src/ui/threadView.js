@@ -1,4 +1,5 @@
 import { renderPostCard } from "./postCard.js";
+import { appendTextWithCustomEmoji } from "./customEmoji.js";
 
 /**
  * @param {number} value
@@ -85,10 +86,18 @@ export function renderThread(container, thread, options = {}) {
     titleLink.href = rootPostUrl;
     titleLink.target = "_blank";
     titleLink.rel = "noopener noreferrer";
-    titleLink.textContent = `Thread by ${thread.author.displayName}`;
+    appendTextWithCustomEmoji(
+      titleLink,
+      `Thread by ${thread.author.displayName}`,
+      thread.author.customEmojis || [],
+    );
     title.append(titleLink);
   } else {
-    title.textContent = `Thread by ${thread.author.displayName}`;
+    appendTextWithCustomEmoji(
+      title,
+      `Thread by ${thread.author.displayName}`,
+      thread.author.customEmojis || [],
+    );
   }
   head.append(title);
 

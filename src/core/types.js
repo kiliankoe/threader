@@ -8,9 +8,10 @@
  * @property {boolean} sensitive
  * @property {string|null} inReplyToId
  * @property {{ replies: number, boosts: number, favourites: number }} counts
- * @property {{ id: string, username: string, acct: string, displayName: string, url: string }} account
+ * @property {{ id: string, username: string, acct: string, displayName: string, url: string, customEmojis: Array<{ shortcode: string, url: string }> }} account
  * @property {Array<{ id: string, type: string, url: string, previewUrl: string|null, description: string }>} attachments
  * @property {Array<{ id: string, url: string, title: string, description: string, siteName: string, imageUrl: string|null }>} linkEmbeds
+ * @property {Array<{ shortcode: string, url: string }>} customEmojis
  */
 
 /**
@@ -22,7 +23,7 @@
  * @property {string} fetchedAt
  * @property {boolean} hasAlternateBranches
  * @property {ThreadPost[]} posts
- * @property {{ id: string, username: string, acct: string, displayName: string, url: string }} author
+ * @property {{ id: string, username: string, acct: string, displayName: string, url: string, customEmojis: Array<{ shortcode: string, url: string }> }} author
  */
 
 export {};
