@@ -421,6 +421,8 @@ function replaceYouTubeLinksWithEmbeds(container) {
       continue;
     }
 
+    let replaceParent = true;
+
     let isStandalone = true;
     for (const node of parent.childNodes) {
       if (node === link) {
@@ -440,7 +442,42 @@ function replaceYouTubeLinksWithEmbeds(container) {
     }
 
     if (!isStandalone) {
-      continue;
+      let previousSignificant = null;
+      let cursor = link.previousSibling;
+      while (cursor) {
+        if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
+          cursor = cursor.previousSibling;
+          continue;
+        }
+        previousSignificant = cursor;
+        break;
+      }
+
+      let nextSignificant = null;
+      cursor = link.nextSibling;
+      while (cursor) {
+        if (cursor.nodeType === Node.TEXT_NODE && !(cursor.nodeValue || "").trim()) {
+          cursor = cursor.nextSibling;
+          continue;
+        }
+        nextSignificant = cursor;
+        break;
+      }
+
+      const previousIsBreak =
+        previousSignificant instanceof HTMLBRElement ||
+        previousSignificant?.nodeName === "BR";
+      const nextIsBreakOrMissing =
+        !nextSignificant ||
+        nextSignificant instanceof HTMLBRElement ||
+        nextSignificant?.nodeName === "BR";
+
+      const isOwnLineAfterBreak = previousIsBreak && nextIsBreakOrMissing;
+      if (!isOwnLineAfterBreak) {
+        continue;
+      }
+
+      replaceParent = false;
     }
 
     const embedUrl = getYouTubeEmbedUrl(link.href);
@@ -469,7 +506,11 @@ function replaceYouTubeLinksWithEmbeds(container) {
     sourceLink.textContent = link.href;
     embed.append(sourceLink);
 
-    parent.replaceWith(embed);
+    if (replaceParent) {
+      parent.replaceWith(embed);
+    } else {
+      link.replaceWith(embed);
+    }
   }
 }
 
