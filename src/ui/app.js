@@ -102,9 +102,9 @@ function setStatus(statusLine, message, tone = "info") {
 
 /**
  * @param {HTMLInputElement} input
- * @param {{ showTimeGaps: boolean }} options
+ * @param {{ showTimeGaps?: boolean, minimalMode?: boolean }} options
  */
-function syncUrlQueryWithOptions(input, options) {
+function buildUrlWithOptions(input, options) {
   const current = new URL(window.location.href);
   if (input.value.trim()) {
     current.searchParams.set("url", input.value.trim());
@@ -112,12 +112,31 @@ function syncUrlQueryWithOptions(input, options) {
     current.searchParams.delete("url");
   }
 
-  if (options.showTimeGaps) {
-    current.searchParams.set("gaps", "");
-  } else {
-    current.searchParams.delete("gaps");
+  if (typeof options.showTimeGaps === "boolean") {
+    if (options.showTimeGaps) {
+      current.searchParams.set("gaps", "");
+    } else {
+      current.searchParams.delete("gaps");
+    }
   }
 
+  if (typeof options.minimalMode === "boolean") {
+    if (options.minimalMode) {
+      current.searchParams.set("minimal", "");
+    } else {
+      current.searchParams.delete("minimal");
+    }
+  }
+
+  return current;
+}
+
+/**
+ * @param {HTMLInputElement} input
+ * @param {{ showTimeGaps?: boolean, minimalMode?: boolean }} options
+ */
+function syncUrlQueryWithOptions(input, options) {
+  const current = buildUrlWithOptions(input, options);
   window.history.replaceState({}, "", current);
 }
 
@@ -139,6 +158,12 @@ function formatCachedAt(iso) {
 export function mountApp() {
   const pageParams = new URL(window.location.href).searchParams;
   let showTimeGaps = pageParams.has("gaps");
+  const minimalMode = pageParams.has("minimal");
+
+  if (minimalMode) {
+    document.documentElement.classList.add("minimal-mode");
+    document.body.classList.add("minimal-mode");
+  }
 
   const form = document.getElementById("unfurl-form");
   const input = document.getElementById("status-url");
@@ -146,6 +171,7 @@ export function mountApp() {
   const root = document.getElementById("thread-root");
   const statusLine = document.getElementById("status-line");
   const gapsSetting = document.getElementById("setting-gaps");
+  const minimalSettingButton = document.getElementById("setting-open-minimal");
 
   if (
     !(form instanceof HTMLFormElement) ||
@@ -153,7 +179,8 @@ export function mountApp() {
     !(button instanceof HTMLButtonElement) ||
     !(root instanceof HTMLElement) ||
     !(statusLine instanceof HTMLElement) ||
-    !(gapsSetting instanceof HTMLInputElement)
+    !(gapsSetting instanceof HTMLInputElement) ||
+    !(minimalSettingButton instanceof HTMLButtonElement)
   ) {
     throw new Error("App mount failed: missing required DOM elements.");
   }
@@ -433,6 +460,14 @@ export function mountApp() {
     if (activeThread) {
       renderActiveThread();
     }
+  });
+
+  minimalSettingButton.addEventListener("click", () => {
+    const targetUrl = buildUrlWithOptions(input, {
+      showTimeGaps,
+      minimalMode: true,
+    });
+    window.location.assign(targetUrl.toString());
   });
 
   window.addEventListener(
