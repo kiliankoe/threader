@@ -334,6 +334,139 @@ function stripLeadingThreadMarker(html, index, totalPosts) {
 }
 
 /**
+ * @param {URL} url
+ */
+function parseYouTubeStartSeconds(url) {
+  const startValue = url.searchParams.get("start") || url.searchParams.get("t");
+  if (!startValue) {
+    return null;
+  }
+
+  if (/^\d+$/.test(startValue)) {
+    const seconds = Number(startValue);
+    return seconds > 0 ? seconds : null;
+  }
+
+  const match = startValue.match(
+    /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/i,
+  );
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  return totalSeconds > 0 ? totalSeconds : null;
+}
+
+/**
+ * @param {string} href
+ */
+function getYouTubeEmbedUrl(href) {
+  let url;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  let videoId = null;
+
+  if (host === "youtu.be") {
+    videoId = url.pathname.split("/").filter(Boolean)[0] || null;
+  } else if (
+    host === "youtube.com" ||
+    host === "m.youtube.com" ||
+    host === "music.youtube.com" ||
+    host === "youtube-nocookie.com"
+  ) {
+    if (url.pathname === "/watch") {
+      videoId = url.searchParams.get("v");
+    } else {
+      const pathMatch = url.pathname.match(/^\/(?:shorts|embed|live)\/([^/?#]+)/);
+      videoId = pathMatch ? pathMatch[1] : null;
+    }
+  }
+
+  if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+    return null;
+  }
+
+  const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  const startSeconds = parseYouTubeStartSeconds(url);
+  if (startSeconds) {
+    embedUrl.searchParams.set("start", String(startSeconds));
+  }
+  return embedUrl.toString();
+}
+
+/**
+ * @param {HTMLElement} container
+ */
+function replaceYouTubeLinksWithEmbeds(container) {
+  const links = Array.from(container.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const parent = link.parentElement;
+    if (!parent) {
+      continue;
+    }
+
+    let isStandalone = true;
+    for (const node of parent.childNodes) {
+      if (node === link) {
+        continue;
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        if ((node.nodeValue || "").trim()) {
+          isStandalone = false;
+          break;
+        }
+        continue;
+      }
+
+      isStandalone = false;
+      break;
+    }
+
+    if (!isStandalone) {
+      continue;
+    }
+
+    const embedUrl = getYouTubeEmbedUrl(link.href);
+    if (!embedUrl) {
+      continue;
+    }
+
+    const embed = document.createElement("div");
+    embed.className = "youtube-embed";
+
+    const iframe = document.createElement("iframe");
+    iframe.src = embedUrl;
+    iframe.loading = "lazy";
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = "strict-origin-when-cross-origin";
+    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+    iframe.title = "Embedded YouTube video";
+
+    embed.append(iframe);
+
+    const sourceLink = document.createElement("a");
+    sourceLink.className = "youtube-embed-link";
+    sourceLink.href = link.href;
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener noreferrer nofollow";
+    sourceLink.textContent = link.href;
+    embed.append(sourceLink);
+
+    parent.replaceWith(embed);
+  }
+}
+
+/**
  * @param {import('../core/types.js').ThreadPost} post
  * @param {number} index
  * @param {number} totalPosts
@@ -358,6 +491,7 @@ export function renderPostCard(post, index, totalPosts) {
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "post-content";
   contentWrapper.innerHTML = cleanedContent;
+  replaceYouTubeLinksWithEmbeds(contentWrapper);
 
   if (cw.hasContentWarning && cw.startsCollapsed) {
     const detailsWrap = document.createElement("div");
